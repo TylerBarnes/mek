@@ -11,6 +11,11 @@ const lightMachine = createMachine(() => ({
     GreenLight,
     YellowLight,
   },
+
+  signals: {
+    onLightColourChange,
+    onGreenLightTransition,
+  },
 }))
 
 var GreenLight = lightMachine.state({
@@ -44,4 +49,28 @@ var RedLight = lightMachine.state({
       thenGoTo: () => GreenLight,
     }),
   ],
+})
+
+var onLightColourChange = lightMachine.signal(
+  effect.onTransition(({ currentState }) => {
+    return { value: currentState.name }
+  })
+)
+
+var onGreenLightTransition = lightMachine.signal(
+  effect.onTransition(({ currentState }) => {
+    if (currentState.name === `GreenLight`) {
+      return { value: currentState.name }
+    }
+
+    return null
+  })
+)
+
+onLightColourChange(({ value }) => {
+  console.log(`yo`, value)
+})
+
+onGreenLightTransition(() => {
+  console.log(`green light dope dude`)
 })

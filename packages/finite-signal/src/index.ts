@@ -1,7 +1,17 @@
+type TransitionHandlerArgs = { currentState: State; previousState: State }
+type OnTransitionDefinition = {
+  type: `OnTransitionDefinition`
+  onTransitionHandler: (args: TransitionHandlerArgs) => {
+    value: any
+  } | null
+}
+
+type SignalDefinition = OnTransitionDefinition
+
 export const effect = Object.assign((fn, effectOptions?: any) => () => fn(), {
   // lazy: (fn, effectOptions?: any) => fn(),
   wait:
-    (time = 1, callback?: (...stuff: any) => void) =>
+    (time = 1, callback?: (...stuff: any) => void | Promise<void>) =>
     () =>
       new Promise((res) =>
         setTimeout(async () => {
@@ -14,7 +24,12 @@ export const effect = Object.assign((fn, effectOptions?: any) => () => fn(), {
   // waitFor: state => {},
   // waitForSequence: state => {},
   // waitForOrderedSequence: state => {},
-  // onTransition: state => {},
+  onTransition: (
+    onTransitionHandler: OnTransitionDefinition["onTransitionHandler"]
+  ): OnTransitionDefinition => ({
+    type: `OnTransitionDefinition`,
+    onTransitionHandler,
+  }),
 })
 
 export const cycle = Object.assign((definition) => definition, {
@@ -50,24 +65,27 @@ export type MachineDefinition = {
 
 type MachineDefinitionFunction = () => MachineDefinition
 
-const privateSymbol = Symbol(`private`)
-const addStateNameSymbol = Symbol(`addStateName`)
-const initializeStateSymbol = Symbol(`initialize-state`)
-const transitionSymbol = Symbol(`transition`)
+const internal = Symbol(`private`)
+const addStateName = Symbol(`addStateName`)
+const initializeState = Symbol(`initialize-state`)
+const transition = Symbol(`transition`)
+const resolveMachineEnd = Symbol(`machine-end`)
+const resolveMachineStart = Symbol(`machine-start`)
 
 class State {
-  definition: StateDefinition
   name: string
-  initialized: boolean = false
-  lifeCyclesRunning: boolean = false
-  finished: boolean = false
+
+  private definition: StateDefinition
+  private initialized: boolean = false
+  private runningLifeCycle: boolean = false
+  private done: boolean = false
 
   constructor(definition: StateDefinition) {
     if (
       // @ts-ignore
-      !definition[privateSymbol] ||
+      !definition[internal] ||
       // @ts-ignore
-      definition[privateSymbol] !== privateSymbol
+      definition[internal] !== internal
     ) {
       throw new Error(
         `States must be defined with createMachine().state(stateDefinition)`
@@ -83,7 +101,7 @@ class State {
     }
   }
 
-  [addStateNameSymbol](name: string) {
+  [addStateName](name: string) {
     this.name = name
   }
 
@@ -94,7 +112,7 @@ class State {
     }
   }
 
-  async [initializeStateSymbol](machine: Machine) {
+  async [initializeState](machine: Machine) {
     if (this.initialized) {
       throw new Error(
         `State ${this.name} has already been initialized. States can only be initialized one time. Either this is a bug or you're abusing the public api :)`
@@ -103,27 +121,25 @@ class State {
       this.initialized = true
     }
 
-    console.info(`Initializing state ${this.name}`)
     await this.runLifeCycles(null, machine)
   }
 
   private async runLifeCycles(context: any, machine: Machine) {
-    if (this.finished) {
+    if (this.done) {
       throw new Error(
-        `State ${this.name} has already finished. Cannot run life cycles.`
+        `State ${this.name} has already done. Cannot run life cycles.`
       )
     }
 
-    if (this.lifeCyclesRunning) {
-      return
+    if (this.runningLifeCycle) {
+      throw new Error(`Life cycles are already running for state ${this.name}`)
     } else {
-      this.lifeCyclesRunning = true
+      this.runningLifeCycle = true
     }
 
     const lifeCycles = this.definition.life || []
-    if (!lifeCycles.length || !Array.isArray(lifeCycles)) {
-      return
-    }
+
+    let nextState: State
 
     for (const cycle of lifeCycles) {
       if (typeof cycle === `undefined`) {
@@ -163,50 +179,129 @@ class State {
       }
 
       if (thenGoToExists && typeof cycle.thenGoTo === `function`) {
-        const nextState = cycle.thenGoTo()
-
-        setImmediate(() => {
-          this.exitState(nextState, machine)
-        })
-
+        nextState = cycle.thenGoTo()
         break
       }
     }
 
-    this.lifeCyclesRunning = false
+    this.runningLifeCycle = false
+    this.exitState(nextState, machine)
   }
 
   private exitState(nextState: State, machine: Machine) {
-    this.finished = true
+    this.done = true
 
     if (nextState) {
-      machine[transitionSymbol](nextState)
+      machine[transition](nextState)
+    } else {
+      machine[resolveMachineEnd]()
     }
   }
 }
 
 class Machine {
-  addedStateReferences: State[] = []
-  ticker: NodeJS.Timeout
-  machineDefinition: MachineDefinition
-  definitionReferencesToStateNames = new Map<State, string>()
-  initialState: State
-  currentState: State
+  private machineDefinition: MachineDefinition
+
+  private addedStateReferences: State[] = []
+  private definitionReferencesToStateNames = new Map<State, string>()
+
+  private initialState: State
+  private currentState: State
+
+  private endPromise: Promise<void>
+  private resolveEndPromise: () => void
+  private startPromise: Promise<void>
+  private resolveStartPromise: () => void
+
+  private machineStatus: `running` | `stopped` = `stopped`
+
+  private onTransitionListeners: ((args: TransitionHandlerArgs) => void)[] = []
 
   constructor(definition: MachineDefinitionFunction) {
+    this.startPromise = new Promise((res) => {
+      this.resolveStartPromise = res
+    })
+    this.endPromise = new Promise((res) => {
+      this.resolveEndPromise = res
+    })
+
     // set immediate so all state and machine vars are defined before we initialize the machine and start transitioning
     setImmediate(() => {
       this.initializeMachineDefinition(definition)
-      this[transitionSymbol](this.initialState)
+      this.start()
     })
   }
 
-  private [transitionSymbol](nextState: State) {
+  public assertIsRunning() {
+    const isRunning = this.machineStatus === `running`
+
+    if (!isRunning) {
+      throw new Error(`Machine is not running but should be. This is a bug.`)
+    }
+
+    return isRunning
+  }
+
+  public assertIsStopped() {
+    const isStopped = this.machineStatus === `stopped`
+
+    if (!isStopped) {
+      throw new Error(`Machine is not stopped but should be. This is a bug.`)
+    }
+
+    return isStopped
+  }
+
+  public start() {
+    if (this.machineStatus === `running`) {
+      return Promise.resolve()
+    }
+
+    this.machineStatus = `running`
+    this[resolveMachineStart]()
+    this[transition](this.initialState)
+
+    return Promise.resolve()
+  }
+
+  public stop() {
+    if (this.machineStatus === `stopped`) {
+      return Promise.resolve()
+    }
+
+    this.machineStatus = `stopped`
+    this[resolveMachineEnd]()
+
+    return Promise.resolve()
+  }
+
+  private [transition](nextState: State) {
+    if (!this.assertIsRunning()) {
+      return
+    }
+
+    const previousState = this.currentState
+
     this.currentState = this.cloneState(nextState)
-    this.currentState[initializeStateSymbol](this)
+    this.currentState[initializeState](this)
+
+    this.onTransitionListeners.forEach((listener) =>
+      listener({ currentState: this.currentState, previousState })
+    )
+  }
+
+  private [resolveMachineStart]() {
+    this.resolveStartPromise()
+  }
+  private [resolveMachineEnd]() {
+    this.resolveEndPromise()
   }
 
   private cloneState(state: State) {
+    if (!this.assertIsRunning()) {
+      return
+    }
+
     return new State(state.getDefinition())
   }
 
@@ -221,10 +316,10 @@ class Machine {
 
     this.machineDefinition = inputDefinition()
     this.buildAddedStateReferences()
-    this.storeInitialState()
+    this.setInitialStateDefinition()
   }
 
-  private storeInitialState() {
+  private setInitialStateDefinition() {
     if (this.initialState) {
       return
     }
@@ -270,34 +365,98 @@ class Machine {
 	  }
   })
 
+	// note var is used so ValidState can be referenced before it's defined
   var ValidState = myMachine.state({ life: [] })
 
   @TODO add link to docs`
         )
       } else {
-        addedState[addStateNameSymbol](referencedStateName)
+        addedState[addStateName](referencedStateName)
       }
     })
   }
 
-  public stop() {
-    clearInterval(this.ticker)
+  private validateDefinition(definition: any | StateDefinition, type: string) {
+    if (Array.isArray(definition) || typeof definition !== `object`) {
+      throw new Error(
+        `${type} definition must be an object. @TODO add link to docs`
+      )
+    }
+
+    if (Object.keys(definition).length === 0) {
+      throw new Error(
+        `${type} definition must have at least one property. @TODO add link to docs`
+      )
+    }
   }
 
-  public state(definition: StateDefinition) {
-    // @ts-ignore
-    definition[privateSymbol] = privateSymbol
+  private initializeDefinition(definition: any, type: string) {
+    this.validateDefinition(definition, type)
 
-    const state = new State(definition)
+    // @ts-ignore
+    definition[internal] = internal
+
+    return definition
+  }
+
+  public signal(signalDefinition: SignalDefinition) {
+    const isStopped = this.assertIsStopped()
+
+    if (!isStopped) {
+      return
+    }
+
+    this.initializeDefinition(signalDefinition, `Signal`)
+
+    if (signalDefinition.type === `OnTransitionDefinition`) {
+      return (callback: (args: { value: any }) => void) => {
+        this.onTransitionListeners.push((args: TransitionHandlerArgs) => {
+          const { value } = signalDefinition.onTransitionHandler(args) || {}
+
+          if (value) {
+            callback({ value })
+          }
+        })
+      }
+    }
+  }
+
+  public state(stateDefinition: StateDefinition) {
+    const isStopped = this.assertIsStopped()
+
+    if (!isStopped) {
+      return
+    }
+
+    this.initializeDefinition(stateDefinition, `State`)
+
+    const state = new State(stateDefinition)
 
     this.addedStateReferences.push(state)
 
     return state
   }
+
+  public onStart(callback?: () => Promise<void> | void) {
+    return this.startPromise.then(callback || (() => {}))
+  }
+  public onStop(callback?: () => Promise<void> | void) {
+    return this.endPromise.then(callback || (() => {}))
+  }
 }
 
 export function createMachine(definition: MachineDefinitionFunction): {
   state: Machine["state"]
+  signal: Machine["signal"]
+  onStart: Machine["onStart"]
+  onStop: Machine["onStop"]
 } {
-  return new Machine(definition)
+  const machine = new Machine(definition)
+
+  return {
+    state: machine.state.bind(machine),
+    signal: machine.signal.bind(machine),
+    onStart: machine.onStart.bind(machine),
+    onStop: machine.onStop.bind(machine),
+  }
 }
