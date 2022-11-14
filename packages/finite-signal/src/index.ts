@@ -282,12 +282,7 @@ class Machine {
     // in case stop() is called before the machine starts due to an error
     this[resolveMachineStart]()
 
-    if (this.machineStatus === `stopped`) {
-      return Promise.resolve()
-    }
-
     this.machineStatus = `stopped`
-
     return Promise.resolve()
   }
 
