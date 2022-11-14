@@ -1,7 +1,7 @@
 import { createMachine, effect } from "./index"
 
 describe(`Signal Machine`, () => {
-  it(`should be able to create and run a new machine without throwing errors`, async () => {
+  it(`should be able to create and run a minimal machine without throwing errors`, async () => {
     const machine = createMachine(() => ({
       states: {
         TestState,
