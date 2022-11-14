@@ -223,6 +223,8 @@ describe(`createMachine`, () => {
   })
 
   it.todo(`transitions between multiple states using cycle({ thenGoTo })`)
+  it.todo(`handles signal subscribers across state transitions`)
+  it.todo(`handles multiple signal subscribers across state transitions`)
 })
 
 describe(`cycle`, () => {
