@@ -61,6 +61,8 @@ type MachineStates = {
 
 export type MachineDefinition = {
   states: MachineStates
+
+  onError?: (message: string) => Promise<void> | void
 }
 
 type MachineDefinitionFunction = () => MachineDefinition
@@ -229,6 +231,10 @@ class Machine {
     setImmediate(() => {
       this.initializeMachineDefinition(definition)
       this.start()
+
+      if (!this.currentState) {
+        this.stop()
+      }
     })
   }
 
@@ -236,7 +242,9 @@ class Machine {
     const isRunning = this.machineStatus === `running`
 
     if (!isRunning) {
-      throw new Error(`Machine is not running but should be. This is a bug.`)
+      return this.fatalError(
+        `Machine is not running but should be. This is a bug.`
+      )
     }
 
     return isRunning
@@ -246,7 +254,9 @@ class Machine {
     const isStopped = this.machineStatus === `stopped`
 
     if (!isStopped) {
-      throw new Error(`Machine is not stopped but should be. This is a bug.`)
+      return this.fatalError(
+        `Machine is not stopped but should be. This is a bug.`
+      )
     }
 
     return isStopped
@@ -259,18 +269,24 @@ class Machine {
 
     this.machineStatus = `running`
     this[resolveMachineStart]()
-    this[transition](this.initialState)
+
+    if (this.initialState) {
+      this[transition](this.initialState)
+    }
 
     return Promise.resolve()
   }
 
   public stop() {
+    this[resolveMachineEnd]()
+    // in case stop() is called before the machine starts due to an error
+    this[resolveMachineStart]()
+
     if (this.machineStatus === `stopped`) {
       return Promise.resolve()
     }
 
     this.machineStatus = `stopped`
-    this[resolveMachineEnd]()
 
     return Promise.resolve()
   }
@@ -309,7 +325,7 @@ class Machine {
     inputDefinition: MachineDefinitionFunction
   ) {
     if (typeof inputDefinition !== `function`) {
-      throw new Error(
+      return this.fatalError(
         `Machine definition must be a function. @TODO add link to docs`
       )
     }
@@ -317,6 +333,16 @@ class Machine {
     this.machineDefinition = inputDefinition()
     this.buildAddedStateReferences()
     this.setInitialStateDefinition()
+  }
+
+  private async fatalError(message: string) {
+    this.stop()
+
+    if (typeof this.machineDefinition.onError === `function`) {
+      await this.machineDefinition.onError(message)
+    } else {
+      throw new Error(message)
+    }
   }
 
   private setInitialStateDefinition() {
@@ -337,12 +363,12 @@ class Machine {
 
     Object.values(this.machineDefinition.states).forEach((stateDefinition) => {
       if (typeof stateDefinition === `undefined`) {
-        throw new Error(
+        return this.fatalError(
           `State definition is undefined. This can happen if your machine definition is not a function that returns an object or if you haven't defined your state. @TODO add link to docs`
         )
       }
       if (!(stateDefinition instanceof State)) {
-        throw new Error(
+        return this.fatalError(
           `Machine definition must be created with createMachine().state(). @TODO add link to docs`
         )
       }
@@ -353,9 +379,9 @@ class Machine {
         this.definitionReferencesToStateNames.get(addedState)
 
       if (!referencedStateName) {
-        throw new Error(
+        return this.fatalError(
           `
-  Added state does not match any defined state. Every state defined with machineName.state() must be added to the machine definition in the states object.
+Added state does not match any defined state. Every state defined with machineName.state() must be added to the machine definition in the states object.
 
   Example:
 
@@ -365,9 +391,9 @@ class Machine {
 	  }
   })
 
-	// note var is used so ValidState can be referenced before it's defined
   var ValidState = myMachine.state({ life: [] })
-
+  
+Note: var is used so "ValidState" can be referenced before it's defined
   @TODO add link to docs`
         )
       } else {
@@ -378,13 +404,13 @@ class Machine {
 
   private validateDefinition(definition: any | StateDefinition, type: string) {
     if (Array.isArray(definition) || typeof definition !== `object`) {
-      throw new Error(
+      return this.fatalError(
         `${type} definition must be an object. @TODO add link to docs`
       )
     }
 
     if (Object.keys(definition).length === 0) {
-      throw new Error(
+      return this.fatalError(
         `${type} definition must have at least one property. @TODO add link to docs`
       )
     }

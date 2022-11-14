@@ -3,6 +3,15 @@ import { createMachine, cycle, effect } from "./index"
 describe(`createMachine`, () => {
   it(`can create and run a minimal machine without throwing errors`, async () => {
     const machine = createMachine(() => ({
+      states: {},
+    }))
+
+    await machine.onStart()
+    await machine.onStop()
+  })
+
+  it(`can create and run a minimal machine and state without throwing errors`, async () => {
+    const machine = createMachine(() => ({
       states: {
         TestState,
       },
@@ -15,7 +24,72 @@ describe(`createMachine`, () => {
     await machine.onStart(() => {
       expect(TestState.name).toBe(`TestState`)
     })
+
+    await machine.onStop()
   })
+
+  it(`throws an error if a state is not defined on the machine definition, even if it's added with machine.state()`, async () => {
+    await expect(
+      new Promise(async (res, rej) => {
+        const machine = createMachine(() => ({
+          states: {},
+          onError: (message) => {
+            rej(new Error(message))
+          },
+        }))
+
+        machine.state({
+          life: [],
+        })
+
+        await Promise.any([
+          machine.onStart(() => {
+            res(null)
+          }),
+          machine.onStop(() => {
+            res(null)
+          }),
+        ])
+      })
+    ).rejects.toThrow()
+  })
+
+  it(`throws an error if a signal is not defined on the machine definition, even if it's added with machine.signal()`, async () => {
+    await expect(
+      new Promise(async (res, rej) => {
+        const machine = createMachine(() => ({
+          states: {},
+          signals: {},
+          onError: (message) => {
+            rej(new Error(message))
+          },
+        }))
+
+        machine.signal(
+          effect.onTransition(() => {
+            return null
+          })
+        )
+
+        await machine.onStart(() => {
+          res(null)
+        })
+
+        res(null)
+      })
+    ).rejects.toThrow()
+  })
+
+  it.todo(
+    `createMachine({ onError }) is called for errors thrown inside of state cycle effects`
+  )
+
+  it.todo(
+    `machine.onStart() returns a promise that resolves when the machine has started running`
+  )
+  it.todo(
+    `machine.onStop() returns a promise that resolves when the machine has stopped running`
+  )
 
   it(`can listen in to a machine via a signal`, async () => {
     const machine = createMachine(() => ({
@@ -148,16 +222,7 @@ describe(`createMachine`, () => {
     expect(cycleRan).toBe(true)
   })
 
-  it.todo(
-    `throws an error if a signal or state is not defined on the machine definition, even if it's added with machine.state() or machine.signal()`
-  )
   it.todo(`transitions between multiple states using cycle({ thenGoTo })`)
-  it.todo(
-    `machine.onStart() returns a promise that resolves when the machine has started running`
-  )
-  it.todo(
-    `machine.onStop() returns a promise that resolves when the machine has stopped running`
-  )
 })
 
 describe(`cycle`, () => {
