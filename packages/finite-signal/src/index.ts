@@ -354,24 +354,23 @@ class Machine {
   }
 
   private buildAddedStateReferences() {
-    Object.entries(this.machineDefinition.states).map(
+    Object.entries(this.machineDefinition.states).forEach(
       ([stateName, stateDefinition]) => {
+        if (typeof stateDefinition === `undefined`) {
+          return this.fatalError(
+            `State definition "${stateName}" is undefined. This can happen if your machine definition is not a function that returns an object, if you haven't defined your state, or if you're trying to define a state after your machine has started. @TODO add link to docs`
+          )
+        }
+
+        if (!(stateDefinition instanceof State)) {
+          return this.fatalError(
+            `Machine state definition for "${stateName}" must be created with createMachine().state(). @TODO add link to docs`
+          )
+        }
+
         this.definitionReferencesToStateNames.set(stateDefinition, stateName)
       }
     )
-
-    Object.values(this.machineDefinition.states).forEach((stateDefinition) => {
-      if (typeof stateDefinition === `undefined`) {
-        return this.fatalError(
-          `State definition is undefined. This can happen if your machine definition is not a function that returns an object or if you haven't defined your state. @TODO add link to docs`
-        )
-      }
-      if (!(stateDefinition instanceof State)) {
-        return this.fatalError(
-          `Machine definition must be created with createMachine().state(). @TODO add link to docs`
-        )
-      }
-    })
 
     this.addedStateReferences.forEach((addedState) => {
       const referencedStateName =
