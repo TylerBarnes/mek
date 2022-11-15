@@ -340,17 +340,7 @@ class Machine {
     this.stop()
 
     if (typeof this.machineDefinition.onError === `function`) {
-      await new Promise((res) => {
-        setImmediate(() => {
-          const maybePromise = this.machineDefinition.onError(message)
-
-          if (maybePromise instanceof Promise) {
-            maybePromise.then(res)
-          } else {
-            res(null)
-          }
-        })
-      })
+      await this.machineDefinition.onError(message)
     } else {
       throw new Error(message)
     }
