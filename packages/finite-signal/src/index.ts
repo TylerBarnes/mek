@@ -226,7 +226,9 @@ class Machine {
       this.start()
 
       if (!this.currentState) {
-        this.stop()
+        setImmediate(() => {
+          this.stop()
+        })
       }
     })
   }
@@ -338,7 +340,17 @@ class Machine {
     this.stop()
 
     if (typeof this.machineDefinition.onError === `function`) {
-      await this.machineDefinition.onError(message)
+      await new Promise((res) => {
+        setImmediate(() => {
+          const maybePromise = this.machineDefinition.onError(message)
+
+          if (maybePromise instanceof Promise) {
+            maybePromise.then(res)
+          } else {
+            res(null)
+          }
+        })
+      })
     } else {
       throw new Error(message)
     }
