@@ -252,13 +252,13 @@ class Machine {
     return isRunning
   }
 
-  public assertIsStopped() {
+  public assertIsStopped(
+    message = `Machine is not stopped but should be. This is a bug.`
+  ) {
     const isStopped = this.machineStatus === `stopped`
 
     if (!isStopped) {
-      return this.fatalError(
-        `Machine is not stopped but should be. This is a bug.`
-      )
+      return this.fatalError(message)
     }
 
     return isStopped
