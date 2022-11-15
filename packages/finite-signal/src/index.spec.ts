@@ -42,14 +42,34 @@ describe(`createMachine`, () => {
           life: [],
         })
 
-        await Promise.any([
-          machine.onStart(() => {
-            res(null)
-          }),
-          machine.onStop(() => {
-            res(null)
-          }),
-        ])
+        // onStop will resolve before onError is called
+        await machine.onStop()
+        setImmediate(() => {
+          // so onError will reject before this line is called
+          // if we resolve here then onError wasn't called at the right time
+          res(null)
+        })
+      })
+    ).rejects.toThrow()
+  })
+
+  it(`throws an error if a state is dynamically defined after the machine starts`, async () => {
+    await expect(
+      new Promise(async (_res, rej) => {
+        const machine = createMachine(() => ({
+          states: {},
+          onError: (message) => {
+            rej(new Error(message))
+          },
+        }))
+
+        await machine.onStart()
+
+        machine.state({
+          life: [],
+        })
+
+        await machine.onStop()
       })
     ).rejects.toThrow()
   })
@@ -71,10 +91,7 @@ describe(`createMachine`, () => {
           })
         )
 
-        await machine.onStart(() => {
-          res(null)
-        })
-
+        await machine.onStart()
         res(null)
       })
     ).rejects.toThrow()
