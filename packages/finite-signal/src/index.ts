@@ -294,7 +294,9 @@ class Machine {
   }
 
   private [transition](nextState: State) {
-    if (!this.assertIsRunning()) {
+    const machineIsStopped = !this.assertIsRunning()
+
+    if (machineIsStopped) {
       return
     }
 
@@ -309,7 +311,9 @@ class Machine {
   }
 
   private cloneState(state: State) {
-    if (!this.assertIsRunning()) {
+    const machineIsStopped = !this.assertIsRunning()
+
+    if (machineIsStopped) {
       return
     }
 
@@ -443,9 +447,11 @@ Note: var is used so "ValidState" can be referenced before it's defined
   }
 
   public state(stateDefinition: StateDefinition) {
-    const isStopped = this.assertIsStopped()
+    const machineIsAlreadyRunning = !this.assertIsStopped(
+      `Machine is already running. You cannot add a state after the machine has started.`
+    )
 
-    if (!isStopped) {
+    if (machineIsAlreadyRunning) {
       return
     }
 
