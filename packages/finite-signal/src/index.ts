@@ -211,21 +211,14 @@ class Machine {
   private currentState: State
 
   private endPromise: Promise<void>
-  private resolveEndPromise: () => void
   private startPromise: Promise<void>
-  private resolveStartPromise: () => void
 
   private machineStatus: `running` | `stopped` = `stopped`
 
   private onTransitionListeners: ((args: TransitionHandlerArgs) => void)[] = []
 
   constructor(definition: MachineDefinitionFunction) {
-    this.startPromise = new Promise((res) => {
-      this[resolveMachineStart] = res
-    })
-    this.endPromise = new Promise((res) => {
-      this[resolveMachineEnd] = res
-    })
+    this.createMachineLifeCyclePromises()
 
     // set immediate so all state and machine vars are defined before we initialize the machine and start transitioning
     setImmediate(() => {
@@ -235,6 +228,15 @@ class Machine {
       if (!this.currentState) {
         this.stop()
       }
+    })
+  }
+
+  private createMachineLifeCyclePromises() {
+    this.startPromise = new Promise((res) => {
+      this[resolveMachineStart] = res
+    })
+    this.endPromise = new Promise((res) => {
+      this[resolveMachineEnd] = res
     })
   }
 
@@ -283,6 +285,11 @@ class Machine {
     this[resolveMachineStart]()
 
     this.machineStatus = `stopped`
+
+    setImmediate(() => {
+      this.createMachineLifeCyclePromises()
+    })
+
     return Promise.resolve()
   }
 
