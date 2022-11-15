@@ -221,10 +221,10 @@ class Machine {
 
   constructor(definition: MachineDefinitionFunction) {
     this.startPromise = new Promise((res) => {
-      this.resolveStartPromise = res
+      this[resolveMachineStart] = res
     })
     this.endPromise = new Promise((res) => {
-      this.resolveEndPromise = res
+      this[resolveMachineEnd] = res
     })
 
     // set immediate so all state and machine vars are defined before we initialize the machine and start transitioning
@@ -299,13 +299,6 @@ class Machine {
     this.onTransitionListeners.forEach((listener) =>
       listener({ currentState: this.currentState, previousState })
     )
-  }
-
-  private [resolveMachineStart]() {
-    this.resolveStartPromise()
-  }
-  private [resolveMachineEnd]() {
-    this.resolveEndPromise()
   }
 
   private cloneState(state: State) {
@@ -387,7 +380,7 @@ Added state does not match any defined state. Every state defined with machineNa
   })
 
   var ValidState = myMachine.state({ life: [] })
-  
+
 Note: var is used so "ValidState" can be referenced before it's defined
   @TODO add link to docs`
         )
