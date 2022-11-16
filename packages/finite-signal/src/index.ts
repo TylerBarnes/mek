@@ -334,6 +334,9 @@ class Machine {
   private machineStatus: `running` | `stopped` = `stopped`
 
   private transitionCount = 0
+  private transitionCountCheckpoint = 0
+  private lastTransitionCountCheckTime = Date.now()
+
   public onTransitionListeners: ((args: TransitionHandlerArgs) => void)[] = []
 
   constructor(definition: MachineDefinitionFunction) {
@@ -405,6 +408,10 @@ class Machine {
     // in case stop() is called before the machine starts due to an error
     this[resolveMachineStart]()
 
+    if (this.machineStatus === `stopped`) {
+      return Promise.resolve()
+    }
+
     this.machineStatus = `stopped`
 
     setImmediate(() => {
@@ -415,9 +422,7 @@ class Machine {
   }
 
   private [transition](nextState: State) {
-    const machineIsStopped = !this.assertIsRunning()
-
-    if (machineIsStopped) {
+    if (this.machineStatus === `stopped`) {
       return
     }
 
@@ -432,12 +437,40 @@ class Machine {
     this.transitionCount++
 
     if (this.transitionCount % 100 === 0) {
-      setImmediate(() => {
-        this.currentState[initializeState]()
-      })
+      const shouldContinue = this.checkForInfiniteTransitionLoop()
+
+      if (shouldContinue) {
+        setImmediate(() => {
+          this.currentState[initializeState]()
+        })
+      }
     } else {
       this.currentState[initializeState]()
     }
+  }
+
+  private checkForInfiniteTransitionLoop() {
+    const now = Date.now()
+
+    const lastCheckWasOver1Second =
+      now - this.lastTransitionCountCheckTime > 1000
+    const lastCheckWasUnder3Seconds =
+      now - this.lastTransitionCountCheckTime < 3000
+
+    const shouldCheck = lastCheckWasOver1Second && lastCheckWasUnder3Seconds
+
+    const exceededMaxTransitionsPerSecond =
+      this.transitionCountCheckpoint > 100000
+
+    if (shouldCheck && exceededMaxTransitionsPerSecond) {
+      return this.fatalError(
+        `Exceeded max transitions per second. You may have an infinite state transition loop happening. Total transitions: ${this.transitionCount}, transitions in the last second: ${this.transitionCountCheckpoint}`
+      )
+    } else if (shouldCheck) {
+      this.transitionCountCheckpoint = this.transitionCount
+    }
+
+    return true
   }
 
   private cloneState(state: State) {
@@ -472,6 +505,7 @@ class Machine {
 
     if (typeof this.machineDefinition.onError === `function`) {
       await this.machineDefinition.onError(new Error(message))
+      return false
     } else {
       throw new Error(message)
     }
@@ -650,6 +684,7 @@ export function createMachine(definition: MachineDefinitionFunction): {
   signal: Machine["signal"]
   onStart: Machine["onStart"]
   onStop: Machine["onStop"]
+  stop: Machine["stop"]
 } {
   const machine = new Machine(definition)
 
@@ -658,5 +693,6 @@ export function createMachine(definition: MachineDefinitionFunction): {
     signal: machine.signal.bind(machine),
     onStart: machine.onStart.bind(machine),
     onStop: machine.onStop.bind(machine),
+    stop: machine.stop.bind(machine),
   }
 }
