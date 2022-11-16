@@ -102,9 +102,73 @@ describe(`createMachine`, () => {
     ).rejects.toThrow()
   })
 
-  it.todo(
-    `createMachine({ onError }) is called for errors thrown inside of state cycle effects`
-  )
+  it(`createMachine({ onError }) is called for errors thrown inside of state cycle effects`, async () => {
+    let onErrorWasCalled = false
+
+    const machine = createMachine(() => ({
+      states: {
+        StateOne,
+      },
+      onError: (error) => {
+        expect(error.message).toContain(
+          `Cycle "run" function in state StateOne.life[1].cycle.run threw error`
+        )
+        expect(error.message).toContain(`Intentional error`)
+        onErrorWasCalled = true
+      },
+    }))
+
+    var StateOne = machine.state({
+      life: [
+        cycle({
+          name: `no error here`,
+        }),
+        cycle({
+          name: `cycle throws an error in it's effect`,
+          run: effect(() => {
+            throw new Error(`Intentional error`)
+          }),
+        }),
+      ],
+    })
+
+    await machine.onStop()
+    expect(onErrorWasCalled).toBe(true)
+  })
+
+  it(`createMachine({ onError }) is called for errors thrown inside of state cycle conditions`, async () => {
+    let onErrorWasCalled = false
+
+    const machine = createMachine(() => ({
+      states: {
+        StateOne,
+      },
+      onError: (error) => {
+        expect(error.message).toContain(
+          `Cycle condition in state StateOne.life[1].cycle.condition threw error`
+        )
+        expect(error.message).toContain(`Intentional error`)
+        onErrorWasCalled = true
+      },
+    }))
+
+    var StateOne = machine.state({
+      life: [
+        cycle({
+          name: `no error here`,
+        }),
+        cycle({
+          name: `cycle throws an error in its condition`,
+          condition: () => {
+            throw new Error(`Intentional error`)
+          },
+        }),
+      ],
+    })
+
+    await machine.onStop()
+    expect(onErrorWasCalled).toBe(true)
+  })
 
   it(`machine.onStart() returns a promise that resolves when the machine has started running`, async () => {
     const machine = createMachine(() => ({

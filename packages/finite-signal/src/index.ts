@@ -124,8 +124,8 @@ class Definition<DefinitionType extends SignalDefinition | StateDefinition> {
     }
   }
 
-  private fatalError(message: string) {
-    this[machineInstance].fatalError(message)
+  fatalError(message: string) {
+    return this[machineInstance].fatalError(message)
   }
 
   private validateDefinition(
@@ -245,7 +245,7 @@ class State extends Definition<StateDefinition> {
   private async runLifeCycles(context: any) {
     if (this.done) {
       throw new Error(
-        `State ${this.name} has already done. Cannot run life cycles.`
+        `State ${this.name} has already run. Cannot run life cycles again.`
       )
     }
 
@@ -257,7 +257,11 @@ class State extends Definition<StateDefinition> {
 
     const lifeCycles = this.definition.life || []
 
+    let cycleIndex = -1
+
     for (const cycle of lifeCycles) {
+      cycleIndex++
+
       if (typeof cycle === `undefined`) {
         continue
       }
@@ -267,7 +271,13 @@ class State extends Definition<StateDefinition> {
       const conditionExists = `condition` in cycle
 
       if (conditionExists && typeof cycle.condition === `function`) {
-        conditionMet = cycle.condition(context)
+        try {
+          conditionMet = cycle.condition(context)
+        } catch (e) {
+          return this.fatalError(
+            `Cycle condition in state ${this.name}.life[${cycleIndex}].cycle.condition threw error:\n${e.stack}`
+          )
+        }
       }
 
       if (conditionExists && !conditionMet) {
@@ -283,7 +293,13 @@ class State extends Definition<StateDefinition> {
       }
 
       if (runExists && typeof cycle.run === `function`) {
-        await cycle.run(context)
+        try {
+          await cycle.run(context)
+        } catch (e) {
+          return this.fatalError(
+            `Cycle "run" function in state ${this.name}.life[${cycleIndex}].cycle.run threw error:\n${e.stack}`
+          )
+        }
       }
 
       const thenGoToExists = `thenGoTo` in cycle
@@ -312,7 +328,7 @@ class State extends Definition<StateDefinition> {
     if (this.nextState) {
       machine[transition](this.nextState)
     } else {
-      machine[resolveMachineEnd]()
+      machine.stop()
     }
   }
 }
