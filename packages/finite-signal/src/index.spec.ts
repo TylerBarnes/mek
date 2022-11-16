@@ -535,6 +535,13 @@ describe(`createMachine`, () => {
   })
 
   it.todo(
+    `onError gracefully stops the machine, while omitting it throws the error`
+  )
+
+  it.todo(
+    `states must begin with a capital letter while signals must begin with a lowercase letter`
+  )
+  it.todo(
     `the first state in the states: {} object in the machine definition is the initial state`
   )
   it.todo(
