@@ -399,7 +399,7 @@ describe(`createMachine`, () => {
     expect(transitionCounter).toBe(3)
   })
 
-  it(`state cycle conditions determine if a cycle will run or not`, async () => {
+  test(`state cycle conditions determine if a cycle will run or not`, async () => {
     const machine = createMachine(() => ({
       states: {
         StateOne,
