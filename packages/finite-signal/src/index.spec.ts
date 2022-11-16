@@ -85,11 +85,7 @@ describe(`createMachine`, () => {
           },
         }))
 
-        machine.signal(
-          effect.onTransition(() => {
-            return null
-          })
-        )
+        machine.signal(effect.onTransition())
 
         await machine.onStart()
         res(null)
@@ -163,16 +159,7 @@ describe(`createMachine`, () => {
       life: [],
     })
 
-    var onTestSignal = machine.signal(
-      effect.onTransition(({ currentState, previousState }) => {
-        return {
-          value: {
-            currentState,
-            previousState,
-          },
-        }
-      })
-    )
+    var onTestSignal = machine.signal(effect.onTransition())
 
     const signals = []
 
@@ -250,16 +237,7 @@ describe(`createMachine`, () => {
       life: [],
     })
 
-    var onTestSignal = machine.signal(
-      effect.onTransition(({ currentState, previousState }) => {
-        return {
-          value: {
-            currentState,
-            previousState,
-          },
-        }
-      })
-    )
+    var onTestSignal = machine.signal(effect.onTransition())
 
     const signals = []
     const signals2 = []
@@ -335,9 +313,7 @@ describe(`createMachine`, () => {
       },
     }))
 
-    let onTransition = machine.signal(
-      effect.onTransition((args) => ({ value: args }))
-    )
+    let onTransition = machine.signal(effect.onTransition())
 
     let transitionCounter = 0
 
@@ -546,26 +522,46 @@ describe(`effect`, () => {
           value: {
             last: previousState.name,
             current: currentState.name,
+            extra: `foo`,
           },
         }
       }
     )
 
-    expect(definition).toHaveProperty(`onTransitionHandler`)
-    expect(definition.type).toBe(`OnTransitionDefinition`)
+    const definitionDefault = effect.onTransition()
 
-    const result = definition.onTransitionHandler({
-      // @ts-ignore
-      currentState: { name: `One` },
-      // @ts-ignore
-      previousState: { name: `Two` },
-    })
+    //
+    ;[definitionDefault, definition].forEach((def, index) => {
+      expect(def).toHaveProperty(`onTransitionHandler`)
+      expect(def.type).toBe(`OnTransitionDefinition`)
 
-    expect(result).toEqual({
-      value: {
-        current: `One`,
-        last: `Two`,
-      },
+      const result = def.onTransitionHandler({
+        // @ts-ignore
+        currentState: { name: `One` },
+        // @ts-ignore
+        previousState: { name: `Two` },
+      })
+
+      if (index === 0) {
+        expect(result).toEqual({
+          value: {
+            currentState: {
+              name: `One`,
+            },
+            previousState: {
+              name: `Two`,
+            },
+          },
+        })
+      } else {
+        expect(result).toEqual({
+          value: {
+            current: `One`,
+            last: `Two`,
+            extra: `foo`,
+          },
+        })
+      }
     })
   })
 })

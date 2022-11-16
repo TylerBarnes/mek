@@ -25,10 +25,10 @@ export const effect = Object.assign((fn, effectOptions?: any) => () => fn(), {
   // waitForSequence: state => {},
   // waitForOrderedSequence: state => {},
   onTransition: (
-    onTransitionHandler: OnTransitionDefinition["onTransitionHandler"]
+    onTransitionHandler?: OnTransitionDefinition["onTransitionHandler"]
   ): OnTransitionDefinition => ({
     type: `OnTransitionDefinition`,
-    onTransitionHandler,
+    onTransitionHandler: onTransitionHandler || ((args) => ({ value: args })),
   }),
 })
 
