@@ -323,6 +323,18 @@ describe(`createMachine`, () => {
   })
 
   it.todo(`transitions between multiple states using cycle({ thenGoTo })`)
+  it.todo(`state cycle conditions determine if a cycle will run or not`)
+  it.todo(`synchronous state transitions don't block the event loop`)
+  it.todo(`a state cannot infinitely transition to itself`)
+  it.todo(
+    `the first state in the states: {} object in the machine definition is the initial state`
+  )
+  it.todo(
+    `when a machine has the initial property defined, that state is the initial state instead of the first state in the states object`
+  )
+  it.todo(
+    `errors when thenGoTo returns a state that isn't defined on the machine`
+  )
   it.todo(`handles signal subscribers across state transitions`)
   it.todo(`handles multiple signal subscribers across state transitions`)
 })
