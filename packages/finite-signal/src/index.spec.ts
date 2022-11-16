@@ -322,7 +322,83 @@ describe(`createMachine`, () => {
     expect(cycleRan).toBe(true)
   })
 
-  it.todo(`transitions between multiple states using cycle({ thenGoTo })`)
+  it(`transitions between multiple states using cycle({ thenGoTo })`, async () => {
+    const machine = createMachine(() => ({
+      states: {
+        StateOne,
+        StateTwo,
+        StateThree,
+      },
+
+      signals: {
+        onTransition,
+      },
+    }))
+
+    let onTransition = machine.signal(
+      effect.onTransition((args) => ({ value: args }))
+    )
+
+    let transitionCounter = 0
+
+    onTransition(({ value: { previousState, currentState } }) => {
+      transitionCounter++
+
+      switch (transitionCounter) {
+        case 1:
+          expect(previousState).toBeUndefined()
+          expect(currentState.name).toBe(`StateOne`)
+          break
+        case 2:
+          expect(previousState.name).toBe(`StateOne`)
+          expect(currentState.name).toBe(`StateTwo`)
+          break
+        case 3:
+          expect(previousState.name).toBe(`StateTwo`)
+          expect(currentState.name).toBe(`StateThree`)
+          break
+      }
+
+      if (!previousState) {
+        expect(currentState.name).toBe(`StateOne`)
+      } else if (previousState.name === `StateOne`) {
+        expect(currentState.name).toBe(`StateTwo`)
+      } else if (previousState.name === `StateTwo`) {
+        expect(currentState.name).toBe(`StateThree`)
+      }
+    })
+
+    let StateOne = machine.state({
+      life: [
+        cycle({
+          name: `go to state 2`,
+          thenGoTo: () => StateTwo,
+        }),
+      ],
+    })
+
+    let StateTwo = machine.state({
+      life: [
+        cycle({
+          name: `go to state 3`,
+          thenGoTo: () => StateThree,
+        }),
+      ],
+    })
+
+    let StateThree = machine.state({
+      life: [
+        cycle({
+          name: `finish`,
+        }),
+      ],
+    })
+
+    await machine.onStop()
+
+    expect(transitionCounter).toBe(3)
+  })
+
   it.todo(`state cycle conditions determine if a cycle will run or not`)
   it.todo(`synchronous state transitions don't block the event loop`)
   it.todo(`a state cannot infinitely transition to itself`)
