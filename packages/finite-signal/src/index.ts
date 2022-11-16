@@ -423,11 +423,12 @@ class Machine {
     const previousState = this.currentState
 
     this.currentState = this.cloneState(nextState)
-    this.currentState[initializeState]()
 
     this.onTransitionListeners.forEach((listener) =>
       listener({ currentState: this.currentState, previousState })
     )
+
+    this.currentState[initializeState]()
   }
 
   private cloneState(state: State) {
