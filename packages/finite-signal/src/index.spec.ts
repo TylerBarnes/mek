@@ -473,7 +473,47 @@ describe(`createMachine`, () => {
     expect(secondTrueConditionFlag).toBe(true)
   })
 
-  it.todo(`synchronous state transitions don't block the event loop`)
+  test(`synchronous state transitions don't block the event loop`, async () => {
+    let eventLoopBlocked = true
+    const startTime = Date.now()
+    let timeoutTime: number
+
+    const timeout = setTimeout(() => {
+      eventLoopBlocked = false
+      timeoutTime = Date.now() - startTime
+    })
+
+    const machine = createMachine(() => ({
+      states: {
+        StateOne,
+      },
+    }))
+
+    let counter = 0
+
+    let StateOne = machine.state({
+      life: [
+        cycle({
+          name: `only cycle`,
+          condition: () => counter <= 600000,
+          run: effect(() => {
+            counter++
+          }),
+          thenGoTo: () => StateOne,
+        }),
+      ],
+    })
+
+    await machine.onStop()
+    const endTime = Date.now() - startTime
+
+    clearTimeout(timeout)
+
+    expect(timeoutTime).toBeDefined()
+    expect(timeoutTime).toBeLessThan(endTime)
+    expect(eventLoopBlocked).toBe(false)
+  })
+
   it.todo(`a state cannot infinitely transition to itself`)
   it.todo(
     `the first state in the states: {} object in the machine definition is the initial state`
