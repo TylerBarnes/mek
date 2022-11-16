@@ -399,7 +399,80 @@ describe(`createMachine`, () => {
     expect(transitionCounter).toBe(3)
   })
 
-  it.todo(`state cycle conditions determine if a cycle will run or not`)
+  it(`state cycle conditions determine if a cycle will run or not`, async () => {
+    const machine = createMachine(() => ({
+      states: {
+        StateOne,
+        StateTwo,
+        StateNever,
+      },
+    }))
+
+    let falseConditionFlag = false
+    let trueConditionFlag = false
+    let secondTrueConditionFlag = false
+
+    var StateOne = machine.state({
+      life: [
+        cycle({
+          name: `never`,
+          condition: () => false,
+          thenGoTo: () => StateNever,
+        }),
+        cycle({
+          name: `go to state 2`,
+          condition: () => true,
+          run: effect(() => {
+            trueConditionFlag = false
+          }),
+          thenGoTo: () => StateTwo,
+        }),
+      ],
+    })
+
+    var StateTwo = machine.state({
+      life: [
+        cycle({
+          name: `first condition`,
+          condition: () => true,
+          run: effect(() => {
+            trueConditionFlag = true
+          }),
+        }),
+        cycle({
+          name: `first condition`,
+          condition: () => true,
+          run: effect(() => {
+            secondTrueConditionFlag = true
+          }),
+        }),
+        cycle({
+          name: `never`,
+          condition: () => false,
+          thenGoTo: () => StateNever,
+        }),
+      ],
+    })
+
+    var StateNever = machine.state({
+      life: [
+        cycle({
+          name: `should never get here because the other states wont transition here`,
+          condition: () => true,
+          run: effect(() => {
+            falseConditionFlag = true
+          }),
+        }),
+      ],
+    })
+
+    await machine.onStop()
+
+    expect(falseConditionFlag).toBe(false)
+    expect(trueConditionFlag).toBe(true)
+    expect(secondTrueConditionFlag).toBe(true)
+  })
+
   it.todo(`synchronous state transitions don't block the event loop`)
   it.todo(`a state cannot infinitely transition to itself`)
   it.todo(
