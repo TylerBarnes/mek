@@ -118,27 +118,25 @@ describe(`createMachine`, () => {
   })
 
   it(`machine.onStop() returns a promise that resolves when the machine has stopped running`, async () => {
-    const machine = createMachine(() => ({
-      states: {
-        TestState,
-      },
-    }))
-
     let flag = false
 
-    var TestState = machine.state({
-      life: [
-        cycle({
-          name: `Test`,
-          run: effect(async () => {
-            await new Promise((res) => setTimeout(res, 100))
-            setImmediate(() => {
-              flag = true
-            })
-          }),
+    const machine = createMachine(() => ({
+      states: {
+        TestState: machine.state({
+          life: [
+            cycle({
+              name: `Test`,
+              run: effect(async () => {
+                await new Promise((res) => setTimeout(res, 100))
+                setImmediate(() => {
+                  flag = true
+                })
+              }),
+            }),
+          ],
         }),
-      ],
-    })
+      },
+    }))
 
     const startTime = Date.now()
     await machine.onStop()
