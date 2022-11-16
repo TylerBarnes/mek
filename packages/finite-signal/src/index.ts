@@ -333,6 +333,7 @@ class Machine {
 
   private machineStatus: `running` | `stopped` = `stopped`
 
+  private transitionCount = 0
   public onTransitionListeners: ((args: TransitionHandlerArgs) => void)[] = []
 
   constructor(definition: MachineDefinitionFunction) {
@@ -428,7 +429,15 @@ class Machine {
       listener({ currentState: this.currentState, previousState })
     )
 
-    this.currentState[initializeState]()
+    this.transitionCount++
+
+    if (this.transitionCount % 100 === 0) {
+      setImmediate(() => {
+        this.currentState[initializeState]()
+      })
+    } else {
+      this.currentState[initializeState]()
+    }
   }
 
   private cloneState(state: State) {
