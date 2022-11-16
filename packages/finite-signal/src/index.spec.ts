@@ -34,6 +34,9 @@ describe(`createMachine`, () => {
         const machine = createMachine(() => ({
           states: {},
           onError: (error) => {
+            expect(error.message).toContain(
+              `Added State does not match any defined State.`
+            )
             rej(error)
           },
         }))
@@ -59,6 +62,9 @@ describe(`createMachine`, () => {
         const machine = createMachine(() => ({
           states: {},
           onError: (error) => {
+            expect(error.message).toContain(
+              `Machine is already running. You cannot add a state after the machine has started.`
+            )
             rej(error)
           },
         }))
@@ -81,6 +87,9 @@ describe(`createMachine`, () => {
           states: {},
           signals: {},
           onError: (error) => {
+            expect(error.message).toContain(
+              `Added Signal does not match any defined Signal.`
+            )
             rej(error)
           },
         }))
@@ -149,9 +158,6 @@ describe(`createMachine`, () => {
       },
       signals: {
         onTestSignal,
-      },
-      onError: (error) => {
-        console.error(error)
       },
     }))
 
