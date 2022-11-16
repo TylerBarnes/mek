@@ -490,7 +490,50 @@ describe(`createMachine`, () => {
     expect(eventLoopBlocked).toBe(false)
   })
 
-  it.todo(`a state cannot infinitely transition to itself`)
+  test(`a state cannot infinitely transition to itself`, async () => {
+    const infiniteLoopingMachine = createMachine(() => ({
+      onError: (error) => {
+        expect(error.message).toContain(`Exceeded max transitions per second.`)
+      },
+
+      states: { InfiniteState },
+      signals: {
+        onTransition,
+      },
+    }))
+
+    var InfiniteState = infiniteLoopingMachine.state({
+      life: [
+        cycle({
+          name: `infinitely transition back into the same state`,
+          thenGoTo: () => InfiniteState,
+        }),
+      ],
+    })
+
+    let transitionCount = 0
+    var onTransition = infiniteLoopingMachine.signal(effect.onTransition())
+    onTransition(() => transitionCount++)
+
+    const secondsTilStop = 3
+    let hadToManuallyStopMachine = false
+
+    const timeout = setTimeout(() => {
+      console.info(
+        `manually stopping machine after ${secondsTilStop} seconds`,
+        {
+          transitionCount,
+        }
+      )
+      hadToManuallyStopMachine = true
+      infiniteLoopingMachine.stop()
+    }, Number(`${secondsTilStop}000`))
+
+    await infiniteLoopingMachine.onStop()
+    clearTimeout(timeout)
+    expect(hadToManuallyStopMachine).toBe(false)
+  })
+
   it.todo(
     `the first state in the states: {} object in the machine definition is the initial state`
   )
