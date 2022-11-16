@@ -33,8 +33,8 @@ describe(`createMachine`, () => {
       new Promise(async (res, rej) => {
         const machine = createMachine(() => ({
           states: {},
-          onError: (message) => {
-            rej(new Error(message))
+          onError: (error) => {
+            rej(error)
           },
         }))
 
@@ -58,8 +58,8 @@ describe(`createMachine`, () => {
       new Promise(async (_res, rej) => {
         const machine = createMachine(() => ({
           states: {},
-          onError: (message) => {
-            rej(new Error(message))
+          onError: (error) => {
+            rej(error)
           },
         }))
 
@@ -74,14 +74,14 @@ describe(`createMachine`, () => {
     ).rejects.toThrow()
   })
 
-  it.skip(`throws an error if a signal is not defined on the machine definition, even if it's added with machine.signal()`, async () => {
+  it(`throws an error if a signal is not defined on the machine definition, even if it's added with machine.signal()`, async () => {
     await expect(
       new Promise(async (res, rej) => {
         const machine = createMachine(() => ({
           states: {},
           signals: {},
-          onError: (message) => {
-            rej(new Error(message))
+          onError: (error) => {
+            rej(error)
           },
         }))
 
@@ -116,6 +116,7 @@ describe(`createMachine`, () => {
     await machine.onStart()
     expect(TestState.name).toBe(`TestState`)
   })
+
   it(`machine.onStop() returns a promise that resolves when the machine has stopped running`, async () => {
     const machine = createMachine(() => ({
       states: {
@@ -152,7 +153,12 @@ describe(`createMachine`, () => {
       states: {
         TestState,
       },
-      signals: {},
+      signals: {
+        onTestSignal,
+      },
+      onError: (error) => {
+        console.error(error)
+      },
     }))
 
     var TestState = machine.state({
@@ -199,7 +205,9 @@ describe(`createMachine`, () => {
       states: {
         TestState,
       },
-      signals: {},
+      signals: {
+        onTestSignal,
+      },
     }))
 
     var TestState = machine.state({
