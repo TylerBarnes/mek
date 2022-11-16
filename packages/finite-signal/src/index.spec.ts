@@ -198,6 +198,44 @@ describe(`createMachine`, () => {
     })
   })
 
+  it(`errors when a state is defined on a machine that didn't create it`, async () => {
+    await expect(
+      new Promise((_, rej) => {
+        const onError = (e: Error) => rej(e)
+
+        const machine1 = createMachine(() => ({
+          onError,
+          states: {
+            Machine2TestState,
+          },
+        }))
+
+        const machine2 = createMachine(() => ({
+          onError,
+          states: {
+            Machine1TestState,
+          },
+        }))
+
+        let Machine1TestState = machine1.state({
+          life: [
+            cycle({
+              name: `Machine1 test state`,
+            }),
+          ],
+        })
+
+        let Machine2TestState = machine2.state({
+          life: [
+            cycle({
+              name: `Machine2 test state`,
+            }),
+          ],
+        })
+      })
+    ).rejects.toThrow()
+  })
+
   it(`can listen in to a machine via the same signal from more than 1 subscriber`, async () => {
     const machine = createMachine(() => ({
       states: {
