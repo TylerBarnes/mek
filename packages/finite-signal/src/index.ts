@@ -558,7 +558,12 @@ class Machine {
       )
     }
 
-    this.machineDefinition = inputDefinition()
+    try {
+      this.machineDefinition = inputDefinition()
+    } catch (e) {
+      return this.fatalError(e)
+    }
+
     this.name = this.machineDefinition?.name
     this.buildAddedReferences(`State`)
     this.buildAddedReferences(`Signal`)
