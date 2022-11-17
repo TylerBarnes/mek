@@ -886,7 +886,51 @@ describe(`createMachine`, () => {
   it.todo(
     `errors when thenGoTo returns a state that isn't defined on the machine`
   )
+  it(`errors when thenGoTo returns a state that isn't defined on the machine`, async () => {
+    const machine = createMachine(() => ({
+      initial: StateTwo,
+      states: {
+        StateOne,
+      },
+    }))
+
+    const machine2 = createMachine(() => ({
+      initial: StateTwo,
+      states: {
+        StateTwo,
+      },
+    }))
+
+    const StateOne = machine.state({
+      life: [
+        cycle({
+          name: `wait so that machine2 is initialized. to simulate a machine that's already running when we attempt to transition to the wrong state`,
+          run: effect(() => new Promise((res) => setTimeout(res))),
+        }),
+        cycle({
+          name: `go to state 2`,
+          thenGoTo: () => StateTwo,
+        }),
+      ],
+    })
+
+    const StateTwo = machine2.state({
+      life: [
+        cycle({
+          name: `go to state 1`,
+          thenGoTo: () => StateOne,
+        }),
+      ],
+    })
+
+    await Promise.all([
+      expect(machine.onStop()).rejects.toThrow(),
+      expect(machine2.onStop()).rejects.toThrow(),
+    ])
+  })
+
   it.todo(`handles signal subscribers across state transitions`)
+
   it.todo(`handles multiple signal subscribers across state transitions`)
 })
 

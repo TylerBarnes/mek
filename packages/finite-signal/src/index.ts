@@ -482,6 +482,27 @@ class Machine {
   }
 
   private [transition](nextState: State) {
+    if (nextState[machineInstance] !== this) {
+      const wrongMachineName = nextState[machineInstance]?.name
+      const nextStateName = nextState[machineInstance]
+        ? this.cloneState(nextState, nextState[machineInstance])?.name
+        : null
+
+      return this.fatalError(
+        new Error(
+          `State "${
+            this.currentState?.name
+          }" attempted to transition to a state that was defined on a different machine${
+            nextStateName
+              ? ` (State "${nextStateName}"${
+                  wrongMachineName ? ` from Machine "${wrongMachineName}"` : ``
+                })`
+              : ``
+          }. State definitions cannot be shared between machines.`
+        )
+      )
+    }
+
     if (this.machineStatus === `stopped`) {
       return
     }
@@ -535,7 +556,7 @@ class Machine {
     return true
   }
 
-  private cloneState(state: State) {
+  private cloneState(state: State, machine: Machine = this) {
     const machineIsStopped = !this.assertIsRunning()
 
     if (machineIsStopped) {
@@ -543,7 +564,7 @@ class Machine {
     }
 
     return new State(state.getDefinition(), {
-      [machineInstance]: this,
+      [machineInstance]: machine,
     })
   }
 
