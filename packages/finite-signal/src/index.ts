@@ -629,6 +629,30 @@ class Machine {
           )
         }
 
+        const isLowerCaseFirst =
+          definitionName.charAt(0) === definitionName.charAt(0).toLowerCase()
+
+        switch (values.namingConvention) {
+          case `capitalize`:
+            if (isLowerCaseFirst) {
+              return this.fatalError(
+                new Error(
+                  `${type} "${definitionName}" must begin with an uppercase letter`
+                )
+              )
+            }
+            break
+          case `lowercase-first`:
+            if (!isLowerCaseFirst) {
+              return this.fatalError(
+                new Error(
+                  `${type} "${definitionName}" must begin with a lowercase letter`
+                )
+              )
+            }
+            break
+        }
+
         const reference = definition[definitionInstance] || definition
 
         values.referenceMap.set(

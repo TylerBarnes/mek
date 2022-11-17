@@ -636,9 +636,38 @@ describe(`createMachine`, () => {
     ])
   })
 
-  it.todo(
-    `states must begin with a capital letter while signals must begin with a lowercase letter`
-  )
+  it(`states must begin with a capital letter`, async () => {
+    const machine = createMachine(() => ({
+      states: {
+        testState,
+      },
+    }))
+
+    let testState = machine.state({
+      life: [],
+    })
+
+    await expect(machine.onStart()).rejects.toThrow()
+  })
+
+  it(`signals must begin with a lowercase letter`, async () => {
+    const machine = createMachine(() => ({
+      states: {
+        TestState,
+      },
+      signals: {
+        TestSignal,
+      },
+    }))
+
+    let TestState = machine.state({
+      life: [],
+    })
+
+    let TestSignal = machine.signal(effect.onTransition())
+
+    await expect(machine.onStart()).rejects.toThrow()
+  })
   it.todo(
     `the first state in the states: {} object in the machine definition is the initial state`
   )
