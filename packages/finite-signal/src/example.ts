@@ -18,7 +18,7 @@ const lightMachine = createMachine(() => ({
   },
 }))
 
-var GreenLight = lightMachine.state({
+const GreenLight = lightMachine.state({
   life: [
     cycle({
       run: effect.wait(3),
@@ -31,7 +31,7 @@ var GreenLight = lightMachine.state({
   ],
 })
 
-var YellowLight = lightMachine.state({
+const YellowLight = lightMachine.state({
   life: [
     cycle({
       name: `Go to red light`,
@@ -41,7 +41,7 @@ var YellowLight = lightMachine.state({
   ],
 })
 
-var RedLight = lightMachine.state({
+const RedLight = lightMachine.state({
   life: [
     cycle({
       name: `Go to green light`,
@@ -51,13 +51,13 @@ var RedLight = lightMachine.state({
   ],
 })
 
-var onLightColourChange = lightMachine.signal(
+const onLightColourChange = lightMachine.signal(
   effect.onTransition(({ currentState }) => {
     return { value: currentState.name }
   })
 )
 
-var onGreenLightTransition = lightMachine.signal(
+const onGreenLightTransition = lightMachine.signal(
   effect.onTransition(({ currentState }) => {
     if (currentState.name === `GreenLight`) {
       return { value: currentState.name }
