@@ -337,7 +337,15 @@ class State extends Definition<StateDefinition> {
       }
 
       if (thenGoToExists && typeof cycle.thenGoTo === `function`) {
-        this.nextState = cycle.thenGoTo()
+        try {
+          this.nextState = cycle.thenGoTo()
+        } catch (e) {
+          return this.fatalError(
+            new Error(
+              `Cycle "thenGoTo" function in state ${this.name}.life[${cycleIndex}].cycle.thenGoTo threw error:\n${e.stack}`
+            )
+          )
+        }
         break
       }
     }
