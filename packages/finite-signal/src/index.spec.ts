@@ -880,12 +880,51 @@ describe(`createMachine`, () => {
     expect(onTransition.did.invocationCount()).toBe(1)
   })
 
-  it.todo(
-    `when a machine has the initial property defined, that state is the initial state instead of the first state in the states object`
-  )
-  it.todo(
-    `errors when thenGoTo returns a state that isn't defined on the machine`
-  )
+  it(`when a machine has the initial property defined, that state is the initial state instead of the first state in the states object`, async () => {
+    const machine = createMachine(() => ({
+      initial: StateTwo,
+      states: {
+        StateOne,
+        StateTwo,
+      },
+
+      signals: {
+        onTransition,
+      },
+    }))
+
+    const StateOne = machine.state({
+      life: [
+        cycle({
+          name: `go to state 2`,
+          thenGoTo: () => StateTwo,
+        }),
+      ],
+    })
+
+    const StateTwo = machine.state({
+      life: [
+        cycle({
+          name: `done`,
+        }),
+      ],
+    })
+
+    const onTransition = machine.signal(effect.onTransition())
+
+    onTransition(({ value: { previousState, currentState } }) => {
+      expect(currentState.name).toBe(`StateOne`)
+      expect(previousState).toBeUndefined()
+      onTransition.unsubscribe()
+    })
+
+    await machine.onStop()
+
+    expect(onTransition.did.run()).toBe(true)
+    expect(onTransition.did.unsubscribe()).toBe(true)
+    expect(onTransition.did.invocationCount()).toBe(1)
+  })
+
   it(`errors when thenGoTo returns a state that isn't defined on the machine`, async () => {
     const machine = createMachine(() => ({
       initial: StateTwo,
