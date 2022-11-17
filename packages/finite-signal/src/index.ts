@@ -60,6 +60,8 @@ type MachineStates = {
 }
 
 export type MachineDefinition = {
+  name?: string
+
   states: MachineStates
 
   onError?: (error: Error) => Promise<void> | void
@@ -358,6 +360,7 @@ class State extends Definition<StateDefinition> {
 }
 
 class Machine {
+  private name: string
   private machineDefinition: MachineDefinition
 
   private addedStateReferences: State[] = []
@@ -548,6 +551,7 @@ class Machine {
     }
 
     this.machineDefinition = inputDefinition()
+    this.name = this.machineDefinition?.name
     this.buildAddedReferences(`State`)
     this.buildAddedReferences(`Signal`)
     this.setInitialStateDefinition()
