@@ -631,6 +631,9 @@ class Machine {
   }
 
   private buildAddedReferences(type: `State` | `Signal`) {
+    const lowercase = `a lowercase letter`
+    const uppercase = `an uppercase letter`
+
     const values = {
       State: {
         machineProperty: `states`,
@@ -639,7 +642,7 @@ class Machine {
         addedReferences: this.addedStateReferences,
         instance: State,
         definitionProperty: `ValidState`,
-        namingConvention: `capitalize`,
+        namingConvention: uppercase,
       },
       Signal: {
         machineProperty: `signals`,
@@ -648,7 +651,7 @@ class Machine {
         addedReferences: this.addedSignalReferences,
         instance: Signal,
         definitionProperty: `validSignal`,
-        namingConvention: `lowercase-first`,
+        namingConvention: lowercase,
       },
     }[type]
 
@@ -682,37 +685,26 @@ class Machine {
           )
         }
 
-        const isLowerCaseFirst =
+        const namingConventionIsLowercaseFirst =
+          values.namingConvention === lowercase
+
+        const nameIsLowerCaseFirst =
           definitionName.charAt(0) === definitionName.charAt(0).toLowerCase()
 
-        switch (values.namingConvention) {
-          case `capitalize`:
-            if (isLowerCaseFirst) {
-              return this.fatalError(
-                new Error(
-                  `${type} "${definitionName}" must begin with an uppercase letter`
-                )
-              )
-            }
-            break
-          case `lowercase-first`:
-            if (!isLowerCaseFirst) {
-              return this.fatalError(
-                new Error(
-                  `${type} "${definitionName}" must begin with a lowercase letter`
-                )
-              )
-            }
-            break
+        const followsNamingConvention =
+          nameIsLowerCaseFirst === namingConventionIsLowercaseFirst
+
+        if (!followsNamingConvention) {
+          return this.fatalError(
+            new Error(
+              `${type} "${definitionName}" must begin with ${values.namingConvention}`
+            )
+          )
         }
 
         const reference = definition[definitionInstance] || definition
 
-        values.referenceMap.set(
-          // @ts-ignore
-          reference,
-          definitionName
-        )
+        values.referenceMap.set(reference, definitionName)
       }
     )
 
