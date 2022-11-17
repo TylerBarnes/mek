@@ -193,30 +193,43 @@ class Signal extends Definition<SignalDefinition> {
   subscribe(machine: Machine) {
     const instance = this
 
-    return Object.assign(
-      (callback: (args: { value: any }) => void) => {
-        machine.onTransitionListeners.push((args: TransitionHandlerArgs) => {
-          if (
-            !machine.addedSignalReferences.find((signal) => signal === this)
-          ) {
-            return machine.fatalError(
-              new Error(`Signal defined with createMachine().signal() is not added in the machine definition. @TODO add link to docs
+    let didRun = false
+    let unsubscribed = false
+    let invocationCount = 0
+
+    const api = {
+      [definitionInstance]: instance as Signal,
+      did: {
+        run: () => didRun,
+        unsubscribe: () => unsubscribed,
+        invocationCount: () => invocationCount,
+      },
+      unsubscribe: () => (unsubscribed = true),
+    }
+
+    return Object.assign((callback: (args: { value: any }) => void) => {
+      machine.onTransitionListeners.push((args: TransitionHandlerArgs) => {
+        if (unsubscribed) {
+          return
+        }
+
+        if (!machine.addedSignalReferences.find((signal) => signal === this)) {
+          return machine.fatalError(
+            new Error(`Signal defined with createMachine().signal() is not added in the machine definition. @TODO add link to docs
 
               Your code: ${this.definition.onTransitionHandler.toString()}`)
-            )
-          }
+          )
+        }
 
-          const { value } = this.definition.onTransitionHandler(args) || {}
+        const { value } = this.definition.onTransitionHandler(args) || {}
 
-          if (value) {
-            callback({ value })
-          }
-        })
-      },
-      {
-        [definitionInstance]: instance as Signal,
-      }
-    )
+        if (value) {
+          invocationCount++
+          didRun = true
+          callback({ value })
+        }
+      })
+    }, api)
   }
 }
 
