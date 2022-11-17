@@ -968,13 +968,153 @@ describe(`createMachine`, () => {
     ])
   })
 
-  it.todo(`handles signal subscribers across state transitions`)
+  it(`handles signal subscribers across state transitions`, async () => {
+    const machine = createMachine(() => ({
+      states: {
+        StateOne,
+        StateTwo,
+        StateThree,
+      },
 
-  it.todo(`handles multiple signal subscribers across state transitions`)
+      signals: {
+        onTransition,
+      },
+    }))
+
+    const StateOne = machine.state({
+      life: [
+        cycle({
+          name: `go to state 2`,
+          thenGoTo: () => StateTwo,
+        }),
+      ],
+    })
+
+    const StateTwo = machine.state({
+      life: [
+        cycle({
+          name: `go to state 3`,
+          thenGoTo: () => StateThree,
+        }),
+      ],
+    })
+
+    const StateThree = machine.state({
+      life: [
+        cycle({
+          name: `done`,
+        }),
+      ],
+    })
+
+    const onTransition = machine.signal(effect.onTransition())
+
+    const visitedStateNames = []
+
+    onTransition(({ value: { currentState } }) => {
+      visitedStateNames.push(currentState.name)
+    })
+
+    await machine.onStop()
+
+    expect(visitedStateNames).toEqual([`StateOne`, `StateTwo`, `StateThree`])
+  })
+
+  it(`handles multiple signal subscribers across state transitions`, async () => {
+    const machine = createMachine(() => ({
+      states: {
+        StateOne,
+        StateTwo,
+        StateThree,
+      },
+
+      signals: {
+        onTransition,
+      },
+    }))
+
+    const StateOne = machine.state({
+      life: [
+        cycle({
+          name: `go to state 2`,
+          thenGoTo: () => StateTwo,
+        }),
+      ],
+    })
+
+    const StateTwo = machine.state({
+      life: [
+        cycle({
+          name: `go to state 3`,
+          thenGoTo: () => StateThree,
+        }),
+      ],
+    })
+
+    const StateThree = machine.state({
+      life: [
+        cycle({
+          name: `done`,
+        }),
+      ],
+    })
+
+    const onTransition = machine.signal(effect.onTransition())
+
+    const visitedStateNames = []
+
+    onTransition(({ value: { currentState } }) => {
+      visitedStateNames.push(currentState.name)
+    })
+    onTransition(({ value: { currentState } }) => {
+      visitedStateNames.push(currentState.name)
+    })
+    onTransition(({ value: { currentState } }) => {
+      visitedStateNames.push(currentState.name)
+    })
+
+    await machine.onStop()
+
+    expect(visitedStateNames).toEqual([
+      `StateOne`,
+      `StateOne`,
+      `StateOne`,
+      `StateTwo`,
+      `StateTwo`,
+      `StateTwo`,
+      `StateThree`,
+      `StateThree`,
+      `StateThree`,
+    ])
+  })
 })
 
 describe(`cycle`, () => {
-  it.todo(`returns a valid state cycle definition`)
+  it(`returns a valid state cycle definition`, async () => {
+    const machine = createMachine(() => ({
+      states: {
+        TestState,
+      },
+    }))
+
+    const TestState = machine.state({
+      life: [],
+    })
+
+    expect(
+      cycle({
+        name: `test`,
+        run: effect(() => {}),
+        thenGoTo: () => TestState,
+        condition: () => true,
+      })
+    ).toEqual({
+      name: `test`,
+      run: expect.any(Function),
+      thenGoTo: expect.any(Function),
+      condition: expect.any(Function),
+    })
+  })
 })
 
 describe(`effect`, () => {
