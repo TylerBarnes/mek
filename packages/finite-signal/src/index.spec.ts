@@ -604,9 +604,37 @@ describe(`createMachine`, () => {
     expect(hadToManuallyStopMachine).toBe(false)
   })
 
-  it.todo(
-    `onError gracefully stops the machine, while omitting it throws the error`
-  )
+  it(`onError gracefully stops the machine, while omitting it throws the error`, async () => {
+    let onErrorWasCalled = false
+
+    const machineOnError = createMachine(() => ({
+      onError: () => {
+        onErrorWasCalled = true
+      },
+
+      states: {},
+    }))
+
+    machineOnError.state({
+      life: [],
+    })
+
+    await machineOnError.onStop()
+    expect(onErrorWasCalled).toBe(true)
+
+    const machineNoOnError = createMachine(() => ({
+      states: {},
+    }))
+
+    machineNoOnError.state({
+      life: [],
+    })
+
+    await Promise.all([
+      expect(machineNoOnError.onStart()).rejects.toThrow(),
+      expect(machineNoOnError.onStop()).rejects.toThrow(),
+    ])
+  })
 
   it.todo(
     `states must begin with a capital letter while signals must begin with a lowercase letter`

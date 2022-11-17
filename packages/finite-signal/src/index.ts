@@ -73,8 +73,10 @@ const machineInstance = Symbol(`machine-instance`)
 const definitionInstance = Symbol(`definition-instance`)
 const initializeState = Symbol(`initialize-state`)
 const transition = Symbol(`transition`)
-const resolveMachineEnd = Symbol(`machine-end`)
-const resolveMachineStart = Symbol(`machine-start`)
+const resolveMachineEnd = Symbol(`resolve-machine-end`)
+const rejectMachineEnd = Symbol(`reject-machine-end`)
+const resolveMachineStart = Symbol(`resolve-machine-start`)
+const rejectMachineStart = Symbol(`reject-machine-start`)
 
 class Definition<DefinitionType extends SignalDefinition | StateDefinition> {
   definition: DefinitionType extends SignalDefinition
@@ -98,7 +100,8 @@ class Definition<DefinitionType extends SignalDefinition | StateDefinition> {
     }
   ) {
     if (!args[machineInstance]) {
-      throw new Error(this.errors.createMachineDefined)
+      this.fatalError(new Error(this.errors.createMachineDefined))
+      return
     }
 
     this[machineInstance] = args[machineInstance]
@@ -124,8 +127,8 @@ class Definition<DefinitionType extends SignalDefinition | StateDefinition> {
     }
   }
 
-  fatalError(message: string) {
-    return this[machineInstance].fatalError(message)
+  fatalError(error: Error) {
+    return this[machineInstance].fatalError(error)
   }
 
   private validateDefinition(
@@ -135,13 +138,17 @@ class Definition<DefinitionType extends SignalDefinition | StateDefinition> {
   ) {
     if (Array.isArray(definition) || typeof definition !== `object`) {
       return this.fatalError(
-        `${this.definitionType} definition must be an object. @TODO add link to docs`
+        new Error(
+          `${this.definitionType} definition must be an object. @TODO add link to docs`
+        )
       )
     }
 
     if (Object.keys(definition).length === 0) {
       return this.fatalError(
-        `${this.definitionType} definition must have at least one property. @TODO add link to docs`
+        new Error(
+          `${this.definitionType} definition must have at least one property. @TODO add link to docs`
+        )
       )
     }
 
@@ -151,7 +158,7 @@ class Definition<DefinitionType extends SignalDefinition | StateDefinition> {
       // @ts-ignore
       definition[internal] !== internal
     ) {
-      return this.fatalError(this.errors.createMachineDefined)
+      return this.fatalError(new Error(this.errors.createMachineDefined))
     }
 
     return true
@@ -193,9 +200,9 @@ class Signal extends Definition<SignalDefinition> {
             !machine.addedSignalReferences.find((signal) => signal === this)
           ) {
             return machine.fatalError(
-              `Signal defined with createMachine().signal() is not added in the machine definition. @TODO add link to docs
+              new Error(`Signal defined with createMachine().signal() is not added in the machine definition. @TODO add link to docs
 
-						Your code: ${this.definition.onTransitionHandler.toString()}`
+              Your code: ${this.definition.onTransitionHandler.toString()}`)
             )
           }
 
@@ -275,7 +282,9 @@ class State extends Definition<StateDefinition> {
           conditionMet = cycle.condition(context)
         } catch (e) {
           return this.fatalError(
-            `Cycle condition in state ${this.name}.life[${cycleIndex}].cycle.condition threw error:\n${e.stack}`
+            new Error(
+              `Cycle condition in state ${this.name}.life[${cycleIndex}].cycle.condition threw error:\n${e.stack}`
+            )
           )
         }
       }
@@ -297,7 +306,9 @@ class State extends Definition<StateDefinition> {
           await cycle.run(context)
         } catch (e) {
           return this.fatalError(
-            `Cycle "run" function in state ${this.name}.life[${cycleIndex}].cycle.run threw error:\n${e.stack}`
+            new Error(
+              `Cycle "run" function in state ${this.name}.life[${cycleIndex}].cycle.run threw error:\n${e.stack}`
+            )
           )
         }
       }
@@ -345,7 +356,10 @@ class Machine {
   private currentState: State
 
   private endPromise: Promise<void>
+  private awaitingEndPromise: boolean = false
+
   private startPromise: Promise<void>
+  private awaitingStartPromise: boolean = false
 
   private machineStatus: `running` | `stopped` = `stopped`
 
@@ -372,11 +386,17 @@ class Machine {
   }
 
   private createMachineLifeCyclePromises() {
-    this.startPromise = new Promise((res) => {
+    this.awaitingEndPromise = false
+    this.awaitingStartPromise = false
+
+    this.startPromise = new Promise((res, rej) => {
       this[resolveMachineStart] = res
+      this[rejectMachineStart] = rej
     })
-    this.endPromise = new Promise((res) => {
+
+    this.endPromise = new Promise((res, rej) => {
       this[resolveMachineEnd] = res
+      this[rejectMachineEnd] = rej
     })
   }
 
@@ -385,7 +405,7 @@ class Machine {
 
     if (!isRunning) {
       return this.fatalError(
-        `Machine is not running but should be. This is a bug.`
+        new Error(`Machine is not running but should be. This is a bug.`)
       )
     }
 
@@ -398,7 +418,7 @@ class Machine {
     const isStopped = this.machineStatus === `stopped`
 
     if (!isStopped) {
-      return this.fatalError(message)
+      return this.fatalError(new Error(message))
     }
 
     return isStopped
@@ -480,7 +500,9 @@ class Machine {
 
     if (shouldCheck && exceededMaxTransitionsPerSecond) {
       return this.fatalError(
-        `Exceeded max transitions per second. You may have an infinite state transition loop happening. Total transitions: ${this.transitionCount}, transitions in the last second: ${this.transitionCountCheckpoint}`
+        new Error(
+          `Exceeded max transitions per second. You may have an infinite state transition loop happening. Total transitions: ${this.transitionCount}, transitions in the last second: ${this.transitionCountCheckpoint}`
+        )
       )
     } else if (shouldCheck) {
       this.transitionCountCheckpoint = this.transitionCount
@@ -506,7 +528,9 @@ class Machine {
   ) {
     if (typeof inputDefinition !== `function`) {
       return this.fatalError(
-        `Machine definition must be a function. @TODO add link to docs`
+        new Error(
+          `Machine definition must be a function. @TODO add link to docs`
+        )
       )
     }
 
@@ -516,15 +540,34 @@ class Machine {
     this.setInitialStateDefinition()
   }
 
-  async fatalError(message: string) {
-    this.stop()
-
-    if (typeof this.machineDefinition.onError === `function`) {
-      await this.machineDefinition.onError(new Error(message))
+  async fatalError(error: Error) {
+    if (typeof this?.machineDefinition?.onError === `function`) {
+      await this.stop()
+      await this.machineDefinition.onError(error)
       return false
-    } else {
-      throw new Error(message)
     }
+
+    const awaitingOn = this.awaitingEndPromise || this.awaitingStartPromise
+
+    if (awaitingOn) {
+      error.message = `Signal Machine errored. Throwing error in machine.onStart() and machine.onEnd() promises. If you'd prefer these promises resolve, you can handle errors yourself by adding an onError function to your machine definition. @TODO add docs link.\n\nError: ${error.message}`
+    }
+
+    if (this.awaitingStartPromise) {
+      this[rejectMachineStart](error)
+    }
+
+    if (this.awaitingEndPromise) {
+      this[rejectMachineEnd](error)
+    }
+
+    if (awaitingOn) {
+      return false
+    }
+
+    await this.stop()
+
+    throw error
   }
 
   private setInitialStateDefinition() {
@@ -567,7 +610,9 @@ class Machine {
       ([definitionName, definition]) => {
         if (typeof definition === `undefined`) {
           return this.fatalError(
-            `${type} definition "${definitionName}" is undefined. This can happen if your machine definition is not a function that returns an object, if you haven't defined your ${type}, or if you're trying to define a ${type} after your machine has started. @TODO add link to docs`
+            new Error(
+              `${type} definition "${definitionName}" is undefined. This can happen if your machine definition is not a function that returns an object, if you haven't defined your ${type}, or if you're trying to define a ${type} after your machine has started. @TODO add link to docs`
+            )
           )
         }
 
@@ -578,7 +623,9 @@ class Machine {
           )
         ) {
           return this.fatalError(
-            `Machine ${type} definition for "${definitionName}" must be created with createMachine().${values.publicApiProperty}(). @TODO add link to docs`
+            new Error(
+              `Machine ${type} definition for "${definitionName}" must be created with createMachine().${values.publicApiProperty}(). @TODO add link to docs`
+            )
           )
         }
 
@@ -599,29 +646,33 @@ class Machine {
 
       if (!referencedDefinitionName) {
         return this.fatalError(
-          `
-Added ${type} does not match any defined ${type}. Every ${type} defined with machineName.${
+          new Error(`
+          Added ${type} does not match any defined ${type}. Every ${type} defined with machineName.${
             values.publicApiProperty
           }() must be added to the machine definition in the ${
             values.machineProperty
           } object.
-
-  Example:
-
-  const myMachine = machine(() => ({
-	  ${values.machineProperty}: {
-		  ${values.definitionProperty},
-	  }
-  })
-
-  var ${values.definitionProperty} = myMachine.state({ life: [] })
-
-Note: var is used so "${
+          
+            Example:
+          
+            const myMachine = machine(() => ({
+              ${values.machineProperty}: {
+                ${values.definitionProperty},
+              }
+            })
+          
+            var ${values.definitionProperty} = myMachine.state({ life: [] })
+          
+          Note: var is used so "${
             values.definitionProperty
           }" can be referenced before it's defined
-  @TODO add link to docs
-
-Your code: ${JSON.stringify(addedDefinitionReference)}`
+            @TODO add link to docs
+          
+          Your ${type} definition:\n\n${JSON.stringify(
+            addedDefinitionReference,
+            null,
+            2
+          )}\n`)
         )
       } else {
         const addNameFn = addedDefinitionReference[addDefinitionName].bind(
@@ -688,9 +739,11 @@ Your code: ${JSON.stringify(addedDefinitionReference)}`
   }
 
   public onStart(callback?: () => Promise<void> | void) {
+    this.awaitingStartPromise = true
     return this.startPromise.then(callback || (() => {}))
   }
   public onStop(callback?: () => Promise<void> | void) {
+    this.awaitingEndPromise = true
     return this.endPromise.then(callback || (() => {}))
   }
 }
