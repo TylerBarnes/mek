@@ -580,7 +580,7 @@ class Machine {
     const awaitingOn = this.awaitingEndPromise || this.awaitingStartPromise
 
     if (awaitingOn) {
-      error.message = `Signal Machine errored. Throwing error in machine.onStart() and machine.onEnd() promises. If you'd prefer these promises resolve, you can handle errors yourself by adding an onError function to your machine definition. @TODO add docs link.\n\nError: ${error.message}`
+      error.message = `Machine errored. An error will be thrown in machine.onStart() and machine.onEnd() promises. If you'd prefer these promises resolve, you can handle errors yourself by adding an onError function to your machine definition. @TODO add docs link.\n\nError: ${error.message}`
     }
 
     if (this.awaitingStartPromise) {
@@ -708,19 +708,19 @@ class Machine {
           }() must be added to the machine definition in the ${
             values.machineProperty
           } object.
-          
+
             Example:
-          
+
             const myMachine = machine(() => ({
               ${values.machineProperty}: {
                 ${values.definitionProperty},
               }
             })
-          
+
             const ${values.definitionProperty} = myMachine.state({ life: [] })
-          
+
             @TODO add link to docs
-          
+
           Your ${type} definition:\n\n${JSON.stringify(
             addedDefinitionReference,
             null,
