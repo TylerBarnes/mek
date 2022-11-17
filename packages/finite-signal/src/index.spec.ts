@@ -671,9 +671,6 @@ describe(`createMachine`, () => {
 
     await expect(machine.onStart()).rejects.toThrow()
   })
-  it.todo(
-    `the first state in the states: {} object in the machine definition is the initial state`
-  )
 
   test(`signal has a method to unsubscribe as well as methods to check invocation count, if the signal ran, and if the signal was unsubscribed from.`, async () => {
     const machine = createMachine(() => ({
@@ -837,6 +834,50 @@ describe(`createMachine`, () => {
     expect(onTransition3.did.run()).toBe(false)
     expect(onTransition3.did.unsubscribe()).toBe(false)
     expect(onTransition3.did.invocationCount()).toBe(0)
+  })
+
+  test(`the first state in the states: {} object in the machine definition is the initial state`, async () => {
+    const machine = createMachine(() => ({
+      states: {
+        StateOne,
+        StateTwo,
+      },
+
+      signals: {
+        onTransition,
+      },
+    }))
+
+    const StateOne = machine.state({
+      life: [
+        cycle({
+          name: `go to state 2`,
+          thenGoTo: () => StateTwo,
+        }),
+      ],
+    })
+
+    const StateTwo = machine.state({
+      life: [
+        cycle({
+          name: `done`,
+        }),
+      ],
+    })
+
+    const onTransition = machine.signal(effect.onTransition())
+
+    onTransition(({ value: { previousState, currentState } }) => {
+      expect(currentState.name).toBe(`StateOne`)
+      expect(previousState).toBeUndefined()
+      onTransition.unsubscribe()
+    })
+
+    await machine.onStop()
+
+    expect(onTransition.did.run()).toBe(true)
+    expect(onTransition.did.unsubscribe()).toBe(true)
+    expect(onTransition.did.invocationCount()).toBe(1)
   })
 
   it.todo(
