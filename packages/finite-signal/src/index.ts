@@ -588,6 +588,7 @@ class Machine {
         addedReferences: this.addedStateReferences,
         instance: State,
         definitionProperty: `ValidState`,
+        namingConvention: `capitalize`,
       },
       Signal: {
         machineProperty: `signals`,
@@ -596,6 +597,7 @@ class Machine {
         addedReferences: this.addedSignalReferences,
         instance: Signal,
         definitionProperty: `validSignal`,
+        namingConvention: `lowercase-first`,
       },
     }[type]
 
