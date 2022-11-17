@@ -17,7 +17,7 @@ describe(`createMachine`, () => {
       },
     }))
 
-    var TestState = machine.state({
+    const TestState = machine.state({
       life: [],
     })
 
@@ -118,13 +118,13 @@ describe(`createMachine`, () => {
       },
     }))
 
-    var StateOne = machine.state({
+    const StateOne = machine.state({
       life: [
         cycle({
-          name: `no error here`,
+          name: `no error here, adding this to test that the error message includes the correct lifecycle index`,
         }),
         cycle({
-          name: `cycle throws an error in it's effect`,
+          name: `cycle throws an error in its effect`,
           run: effect(() => {
             throw new Error(`Intentional error`)
           }),
@@ -145,17 +145,20 @@ describe(`createMachine`, () => {
       },
       onError: (error) => {
         expect(error.message).toContain(
-          `Cycle condition in state StateOne.life[1].cycle.condition threw error`
+          `Cycle condition in state StateOne.life[2].cycle.condition threw error`
         )
         expect(error.message).toContain(`Intentional error`)
         onErrorWasCalled = true
       },
     }))
 
-    var StateOne = machine.state({
+    const StateOne = machine.state({
       life: [
         cycle({
-          name: `no error here`,
+          name: `no error here, adding this to test that the error message includes the correct lifecycle index`,
+        }),
+        cycle({
+          name: `no error here, adding this to test that the error message includes the correct lifecycle index`,
         }),
         cycle({
           name: `cycle throws an error in its condition`,
@@ -177,7 +180,7 @@ describe(`createMachine`, () => {
       },
     }))
 
-    var TestState = machine.state({
+    const TestState = machine.state({
       life: [],
     })
 
@@ -225,11 +228,11 @@ describe(`createMachine`, () => {
       },
     }))
 
-    var TestState = machine.state({
+    const TestState = machine.state({
       life: [],
     })
 
-    var onTestSignal = machine.signal(effect.onTransition())
+    const onTestSignal = machine.signal(effect.onTransition())
 
     const signals = []
 
@@ -303,11 +306,11 @@ describe(`createMachine`, () => {
       },
     }))
 
-    var TestState = machine.state({
+    const TestState = machine.state({
       life: [],
     })
 
-    var onTestSignal = machine.signal(effect.onTransition())
+    const onTestSignal = machine.signal(effect.onTransition())
 
     const signals = []
     const signals2 = []
@@ -348,7 +351,7 @@ describe(`createMachine`, () => {
 
     let cycleRan = false
 
-    var TestState = machine.state({
+    const TestState = machine.state({
       life: [
         cycle({
           // @TODO fail if name is not provided
@@ -458,7 +461,7 @@ describe(`createMachine`, () => {
     let trueConditionFlag = false
     let secondTrueConditionFlag = false
 
-    var StateOne = machine.state({
+    const StateOne = machine.state({
       life: [
         cycle({
           name: `never`,
@@ -476,7 +479,7 @@ describe(`createMachine`, () => {
       ],
     })
 
-    var StateTwo = machine.state({
+    const StateTwo = machine.state({
       life: [
         cycle({
           name: `first condition`,
@@ -500,7 +503,7 @@ describe(`createMachine`, () => {
       ],
     })
 
-    var StateNever = machine.state({
+    const StateNever = machine.state({
       life: [
         cycle({
           name: `should never get here because the other states wont transition here`,
@@ -572,7 +575,7 @@ describe(`createMachine`, () => {
       },
     }))
 
-    var InfiniteState = infiniteLoopingMachine.state({
+    const InfiniteState = infiniteLoopingMachine.state({
       life: [
         cycle({
           name: `infinitely transition back into the same state`,
@@ -582,7 +585,7 @@ describe(`createMachine`, () => {
     })
 
     let transitionCount = 0
-    var onTransition = infiniteLoopingMachine.signal(effect.onTransition())
+    const onTransition = infiniteLoopingMachine.signal(effect.onTransition())
     onTransition(() => transitionCount++)
 
     const secondsTilStop = 3

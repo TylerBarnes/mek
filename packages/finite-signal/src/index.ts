@@ -687,11 +687,8 @@ class Machine {
               }
             })
           
-            var ${values.definitionProperty} = myMachine.state({ life: [] })
+            const ${values.definitionProperty} = myMachine.state({ life: [] })
           
-          Note: var is used so "${
-            values.definitionProperty
-          }" can be referenced before it's defined
             @TODO add link to docs
           
           Your ${type} definition:\n\n${JSON.stringify(
