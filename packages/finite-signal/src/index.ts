@@ -730,7 +730,9 @@ class Machine {
               }
             })
 
-            const ${values.definitionProperty} = myMachine.state({ life: [] })
+            const ${values.definitionProperty} = myMachine.${
+            values.publicApiProperty
+          }{}({ life: [] })
 
             @TODO add link to docs
 
@@ -750,12 +752,15 @@ class Machine {
     })
   }
 
-  private initializeDefinition(definition: any, type: `State` | `Signal`) {
+  private initializeDefinition(
+    definition: StateDefinition | SignalDefinition,
+    type: `State` | `Signal`
+  ) {
     // @ts-ignore
     definition[internal] = internal
 
     if (type === `State`) {
-      const state = new State(definition, {
+      const state = new State(definition as StateDefinition, {
         [machineInstance]: this,
       })
 
@@ -764,7 +769,7 @@ class Machine {
     }
 
     if (type === `Signal`) {
-      const signal = new Signal(definition, {
+      const signal = new Signal(definition as SignalDefinition, {
         [machineInstance]: this,
       })
 
@@ -799,15 +804,14 @@ class Machine {
       return
     }
 
-    const state = this.initializeDefinition(stateDefinition, `State`) as State
-
-    return state
+    return this.initializeDefinition(stateDefinition, `State`) as State
   }
 
   public onStart(callback?: () => Promise<void> | void) {
     this.awaitingStartPromise = true
     return this.startPromise.then(callback || (() => {}))
   }
+
   public onStop(callback?: () => Promise<void> | void) {
     this.awaitingEndPromise = true
     return this.endPromise.then(callback || (() => {}))
