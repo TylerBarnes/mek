@@ -1084,6 +1084,10 @@ describe(`createMachine`, () => {
   })
 
   test.todo(
+    `data returned from run: effect() is passed as args into the next state if thenGoTo is defined.`
+  )
+
+  test.todo(
     `effect methods besides effect()/effect.wait() throw errors when passed to cycle() or when called outside of cycle()/signal()`
   )
 
