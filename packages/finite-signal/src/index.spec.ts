@@ -242,8 +242,8 @@ describe(`createMachine`, () => {
 
     expect(signals.length).toBe(1)
 
-    signals.forEach(({ value }) => {
-      expect(value.previousState).toBeUndefined()
+    signals.forEach(({ previousState, currentState }) => {
+      expect(previousState).toBeUndefined()
 
       const expectedClassState = {
         initialized: true,
@@ -252,9 +252,7 @@ describe(`createMachine`, () => {
         name: `TestState`,
       }
 
-      expect(value.currentState).toEqual(
-        expect.objectContaining(expectedClassState)
-      )
+      expect(currentState).toEqual(expect.objectContaining(expectedClassState))
     })
   })
 
@@ -324,8 +322,8 @@ describe(`createMachine`, () => {
     expect(signals2.length).toBe(1)
 
     //
-    ;[...signals, ...signals2].forEach(({ value }) => {
-      expect(value.previousState).toBeUndefined()
+    ;[...signals, ...signals2].forEach(({ previousState, currentState }) => {
+      expect(previousState).toBeUndefined()
 
       const expectedClassState = {
         initialized: true,
@@ -334,9 +332,7 @@ describe(`createMachine`, () => {
         name: `TestState`,
       }
 
-      expect(value.currentState).toEqual(
-        expect.objectContaining(expectedClassState)
-      )
+      expect(currentState).toEqual(expect.objectContaining(expectedClassState))
     })
 
     expect(signals[0]).toEqual(signals2[0])
@@ -390,7 +386,7 @@ describe(`createMachine`, () => {
 
     let transitionCounter = 0
 
-    onTransition(({ value: { previousState, currentState } }) => {
+    onTransition(({ previousState, currentState }) => {
       transitionCounter++
 
       switch (transitionCounter) {
@@ -725,7 +721,7 @@ describe(`createMachine`, () => {
 
     let outsideInvocationCount = 0
 
-    onTransition(async ({ value: { previousState, currentState } }) => {
+    onTransition(async ({ previousState, currentState }) => {
       outsideInvocationCount++
       const invocationCount = onTransition.did.invocationCount()
 
@@ -867,7 +863,7 @@ describe(`createMachine`, () => {
 
     const onTransition = machine.signal(effect.onTransition())
 
-    onTransition(({ value: { previousState, currentState } }) => {
+    onTransition(({ previousState, currentState }) => {
       expect(currentState.name).toBe(`StateOne`)
       expect(previousState).toBeUndefined()
       onTransition.unsubscribe()
@@ -912,7 +908,7 @@ describe(`createMachine`, () => {
 
     const onTransition = machine.signal(effect.onTransition())
 
-    onTransition(({ value: { previousState, currentState } }) => {
+    onTransition(({ previousState, currentState }) => {
       expect(currentState.name).toBe(`StateOne`)
       expect(previousState).toBeUndefined()
       onTransition.unsubscribe()
@@ -1011,7 +1007,7 @@ describe(`createMachine`, () => {
 
     const visitedStateNames = []
 
-    onTransition(({ value: { currentState } }) => {
+    onTransition(({ currentState }) => {
       visitedStateNames.push(currentState.name)
     })
 
@@ -1063,13 +1059,13 @@ describe(`createMachine`, () => {
 
     const visitedStateNames = []
 
-    onTransition(({ value: { currentState } }) => {
+    onTransition(({ currentState }) => {
       visitedStateNames.push(currentState.name)
     })
-    onTransition(({ value: { currentState } }) => {
+    onTransition(({ currentState }) => {
       visitedStateNames.push(currentState.name)
     })
-    onTransition(({ value: { currentState } }) => {
+    onTransition(({ currentState }) => {
       visitedStateNames.push(currentState.name)
     })
 

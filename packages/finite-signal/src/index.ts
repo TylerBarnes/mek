@@ -209,7 +209,7 @@ class Signal extends Definition<SignalDefinition> {
       unsubscribe: () => (unsubscribed = true),
     }
 
-    return Object.assign((callback: (args: { value: any }) => void) => {
+    return Object.assign((callback: (value: any) => void) => {
       machine.onTransitionListeners.push((args: TransitionHandlerArgs) => {
         if (unsubscribed) {
           return
@@ -228,7 +228,7 @@ class Signal extends Definition<SignalDefinition> {
         if (value) {
           invocationCount++
           didRun = true
-          callback({ value })
+          callback(value)
         }
       })
     }, api)
