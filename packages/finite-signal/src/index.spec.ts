@@ -1082,10 +1082,48 @@ describe(`createMachine`, () => {
       `StateThree`,
     ])
   })
+
+  test.todo(
+    `signals can be defined on individual states, and signals with the same name as on the machine are preferred and override signals defined on the machine`
+  )
+
+  test.todo(
+    `signals can be any serializable immutable value: strings, objects, arrays, functions`
+  )
+
+  test.todo(
+    `signal effects can queue state transitions with effect.requestState() which can then optionally be picked up by states when a cycle.onRequest() lifecycle is defined and runs`
+  )
+
+  test.todo(
+    `machines have storage that can be accessed/mutated in states and signals`
+  )
+
+  test.todo(
+    `states have storage that is only accessible (from the state or from signals) while in that state, and persists across transitions to and from a state`
+  )
+
+  test.todo(
+    `machines can have plugins which hook into transitions, state definitions, machine definition, and machine stop/start/error`
+  )
+
+  test.todo(
+    `machine plugins can mutate the machine definition during initial start up`
+  )
+
+  test.todo(
+    `machine plugins can mutate the state definitions during initial start up`
+  )
+
+  test.todo(
+    `machine plugins can mutate machine/state storage on machine start/stop`
+  )
 })
 
 describe(`cycle`, () => {
   it.todo(`fails if no name is provided`)
+
+  it.todo(`cycle properties must be defined in a consistent order`)
 
   it(`returns a valid state cycle definition`, async () => {
     const machine = createMachine(() => ({
