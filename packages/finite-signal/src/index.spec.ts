@@ -1084,6 +1084,22 @@ describe(`createMachine`, () => {
   })
 
   test.todo(
+    `effect methods besides effect()/effect.wait() throw errors when passed to cycle() or when called outside of cycle()/signal()`
+  )
+
+  test.todo(
+    `signal(effect.waitFor()) returns a promise that resolves the first time a given state is entered`
+  )
+
+  test.todo(
+    `signal(effect.waitForSequence()) returns a promise that resolves the first time a given list of states are entered in any order`
+  )
+
+  test.todo(
+    `signal(effect.waitForOrderedSequence()) returns a promise that resolves the first time a given list of states are entered in sequence`
+  )
+
+  test.todo(
     `signals can be defined on individual states, and signals with the same name as on the machine are preferred and override signals defined on the machine`
   )
 
