@@ -350,7 +350,6 @@ describe(`createMachine`, () => {
     const TestState = machine.state({
       life: [
         cycle({
-          // @TODO fail if name is not provided
           name: `Test cycle`,
           run: () => {
             return new Promise((res) => {
@@ -1086,6 +1085,8 @@ describe(`createMachine`, () => {
 })
 
 describe(`cycle`, () => {
+  it.todo(`fails if no name is provided`)
+
   it(`returns a valid state cycle definition`, async () => {
     const machine = createMachine(() => ({
       states: {
