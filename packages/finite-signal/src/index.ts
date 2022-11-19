@@ -271,6 +271,12 @@ class State extends Definition<StateDefinition> {
     super(definition, args)
   }
 
+  reset() {
+    this.initialized = false
+    this.done = false
+    this.nextState = null
+  }
+
   async [initializeState]() {
     if (this.initialized) {
       throw new Error(
@@ -528,7 +534,9 @@ class Machine {
 
     const previousState = this.currentState
 
-    this.currentState = this.cloneState(nextState)
+    this.currentState = nextState
+
+    this.currentState.reset()
 
     this.onTransitionListeners.forEach((listener) =>
       listener({ currentState: this.currentState, previousState })
@@ -536,7 +544,7 @@ class Machine {
 
     this.transitionCount++
 
-    if (this.transitionCount % 100 === 0) {
+    if (this.transitionCount % 1000 === 0) {
       const shouldContinue = this.checkForInfiniteTransitionLoop()
 
       if (shouldContinue) {
@@ -563,7 +571,8 @@ class Machine {
       this.machineDefinition?.options?.maxTransitionsPerSecond || 1000000
 
     const exceededMaxTransitionsPerSecond =
-      this.transitionCountCheckpoint > 100000
+      this.transitionCount - this.transitionCountCheckpoint >
+      maxTransitionsPerSecond
 
     if (shouldCheck && exceededMaxTransitionsPerSecond) {
       return this.fatalError(
