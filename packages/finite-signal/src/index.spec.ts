@@ -1153,6 +1153,54 @@ describe(`createMachine`, () => {
     }
   )
 
+  test(`10 million transitions take less than 2 seconds`, async () => {
+    const iterationMax = 10_000_000
+    const startTime = Date.now()
+    let counter = 0
+
+    const machine = createMachine(() => ({
+      states: {
+        StateOne,
+        StateTwo,
+      },
+
+      options: {
+        maxTransitionsPerSecond: iterationMax,
+      },
+    }))
+
+    const StateOne = machine.state({
+      life: [
+        cycle({
+          name: `only cycle`,
+          condition: () => counter <= iterationMax,
+          run: effect(() => {
+            counter++
+          }),
+          thenGoTo: () => StateTwo,
+        }),
+      ],
+    })
+    const StateTwo = machine.state({
+      life: [
+        cycle({
+          name: `only cycle`,
+          condition: () => counter <= iterationMax,
+          run: effect(() => {
+            counter++
+          }),
+          thenGoTo: () => StateOne,
+        }),
+      ],
+    })
+
+    await machine.onStop()
+
+    const endTime = Date.now() - startTime
+
+    expect(endTime).toBeLessThan(2000)
+  })
+
   test.todo(
     `data returned from run: effect() is passed as args into the next state if thenGoTo is defined.`
   )
