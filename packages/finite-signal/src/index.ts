@@ -65,6 +65,10 @@ export type MachineDefinition = {
   states: MachineStates
 
   onError?: (error: Error) => Promise<void> | void
+
+  options?: {
+    maxTransitionsPerSecond?: number
+  }
 }
 
 type MachineDefinitionFunction = () => MachineDefinition
@@ -554,6 +558,9 @@ class Machine {
       now - this.lastTransitionCountCheckTime < 3000
 
     const shouldCheck = lastCheckWasOver1Second && lastCheckWasUnder3Seconds
+
+    const maxTransitionsPerSecond =
+      this.machineDefinition?.options?.maxTransitionsPerSecond || 1000000
 
     const exceededMaxTransitionsPerSecond =
       this.transitionCountCheckpoint > 100000
