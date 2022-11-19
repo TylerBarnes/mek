@@ -10,7 +10,7 @@ const machine = createMachine(() => ({
   },
 
   options: {
-    allowInfiniteLoops: true,
+    maxTransitionsPerSecond: iterationMax,
   },
 }))
 
