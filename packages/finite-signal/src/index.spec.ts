@@ -1181,6 +1181,7 @@ describe(`createMachine`, () => {
         }),
       ],
     })
+
     const StateTwo = machine.state({
       life: [
         cycle({
