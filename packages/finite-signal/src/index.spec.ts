@@ -1123,6 +1123,26 @@ describe(`createMachine`, () => {
     `states have storage that is only accessible (from the state or from signals) while in that state, and persists across transitions to and from a state`
   )
 
+  test.todo(`cycle conditions and effects can access state and machine storage`)
+
+  test.todo(`machines can be linked together and communicate via signals`)
+
+  test.todo(
+    `states can fork into multiple simultaneous state trees with cycle({ thenGoTo: () => [StateOne, StateTwo, Etc]})`
+  )
+
+  test.todo(
+    `state definitions are static and are only processed when they are defined the first time. for example conditions in thenGoTo will only run the first time (to discourage using unmappable conditionals inside thenGoTo)`
+  )
+
+  test.todo(
+    `state trees can end themselves by calling cycle.end({ condition: () => true })`
+  )
+
+  test.todo(
+    `states in forked state trees share the same storage per-state definition and per-machine`
+  )
+
   test.todo(
     `machines can have plugins which hook into transitions, state definitions, machine definition, and machine stop/start/error`
   )
@@ -1140,7 +1160,7 @@ describe(`createMachine`, () => {
   )
 
   test.todo(
-    `when process.env.NODE_ENV === 'test', machines don't automatically start until started`
+    `when process.env.NODE_ENV === 'test', machines don't automatically start until started with machine.start()`
   )
 
   test.todo(
