@@ -15,8 +15,8 @@
   },
   "scripts": {
     "dev": "ts-node-dev --transpile-only ./src/example.ts",
-    "test": "jest",
-    "test:watch": "jest --watch",
+    "test": "jest --maxConcurrency=30",
+    "test:watch": "jest --watch --maxConcurrency=30",
     "build": "swc ./src -d ./dist --source-maps --minify"
   }
 }
