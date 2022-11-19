@@ -1,6 +1,6 @@
 import { createMachine, cycle, effect } from "./index"
 
-const iterationMax = 1_000_000
+const iterationMax = 10_000_000
 const startTime = Date.now()
 let counter = 0
 
