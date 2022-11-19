@@ -67,7 +67,7 @@ const onGreenLightTransition = lightMachine.signal(
   })
 )
 
-onLightColourChange(({ value }) => {
+onLightColourChange((value) => {
   console.log(`yo`, value)
 })
 
