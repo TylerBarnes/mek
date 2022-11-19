@@ -1096,7 +1096,7 @@ describe(`createMachine`, () => {
   )
 
   test.todo(
-    `signal(effect.waitForSequence()) returns a promise that resolves the first time a given list of states are entered in any order`
+    `signal(effect.waitForAnySequence()) returns a promise that resolves the first time a given list of states are entered in any order`
   )
 
   test.todo(
@@ -1137,6 +1137,22 @@ describe(`createMachine`, () => {
 
   test.todo(
     `machine plugins can mutate machine/state storage on machine start/stop`
+  )
+
+  test.todo(
+    `when process.env.NODE_ENV === 'test', machines don't automatically start until started`
+  )
+
+  test.todo(
+    `machine.mergeMockDefinition() allows merging new values into the machine definition`
+  )
+
+  test.todo(
+    `machine.mergeMockDefinition() can only be called before the machine is started`
+  )
+
+  test.todo(
+    `machine.mergeMockDefinition().mergeMockState() extends State definitions`
   )
 })
 
