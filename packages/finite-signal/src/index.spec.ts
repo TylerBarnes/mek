@@ -1144,6 +1144,14 @@ describe(`createMachine`, () => {
   )
 
   test.todo(
+    `signals which enqueue transition requests can choose to request on the main state tree or inspect and select forked state trees to request`
+  )
+
+  test.todo(
+    `signals which subscribe to transitions can choose to subscribe on the main state tree or inspect and select forked state trees to subscribe to`
+  )
+
+  test.todo(
     `machines can have plugins which hook into transitions, state definitions, machine definition, and machine stop/start/error`
   )
 
