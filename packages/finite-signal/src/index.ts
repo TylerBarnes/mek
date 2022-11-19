@@ -190,17 +190,29 @@ class Signal extends Definition<SignalDefinition> {
     args: { [machineInstance]: Machine }
   ) {
     super(definition, args)
+
+    setImmediate(() => this.initializeSignal())
+  }
+
+  private initializeSignal() {
+    const machine = this[machineInstance]
+
+    if (!machine.addedSignalReferences.find((signal) => signal === this)) {
+      machine.fatalError(
+        new Error(`Signal defined with createMachine().signal() is not added in the machine definition. @TODO add link to docs
+
+          Your code: ${this.definition.onTransitionHandler.toString()}`)
+      )
+    }
   }
 
   subscribe(machine: Machine) {
-    const instance = this
-
     let didRun = false
     let unsubscribed = false
     let invocationCount = 0
 
     const api = {
-      [definitionInstance]: instance as Signal,
+      [definitionInstance]: this as Signal,
       did: {
         run: () => didRun,
         unsubscribe: () => unsubscribed,
@@ -209,29 +221,32 @@ class Signal extends Definition<SignalDefinition> {
       unsubscribe: () => (unsubscribed = true),
     }
 
-    return Object.assign((callback: (value: any) => void) => {
-      machine.onTransitionListeners.push((args: TransitionHandlerArgs) => {
-        if (unsubscribed) {
-          return
-        }
+    type Callback = (value: any) => void
 
-        if (!machine.addedSignalReferences.find((signal) => signal === this)) {
-          return machine.fatalError(
-            new Error(`Signal defined with createMachine().signal() is not added in the machine definition. @TODO add link to docs
+    const createTransitionListener = (
+      args: TransitionHandlerArgs,
+      callback: Callback
+    ) => {
+      if (unsubscribed) {
+        return
+      }
 
-              Your code: ${this.definition.onTransitionHandler.toString()}`)
-          )
-        }
+      const { value } = this.definition.onTransitionHandler(args) || {}
 
-        const { value } = this.definition.onTransitionHandler(args) || {}
+      if (value) {
+        invocationCount++
+        didRun = true
+        callback(value)
+      }
+    }
 
-        if (value) {
-          invocationCount++
-          didRun = true
-          callback(value)
-        }
-      })
-    }, api)
+    const subscribe = (callback: Callback) => {
+      machine.onTransitionListeners.push((args) =>
+        createTransitionListener(args, callback)
+      )
+    }
+
+    return Object.assign(subscribe, api)
   }
 }
 
