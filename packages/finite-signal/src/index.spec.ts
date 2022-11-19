@@ -598,7 +598,6 @@ describe(`createMachine`, () => {
 
       expect(timeoutTime).toBeDefined()
       expect(timeoutTime).toBeLessThan(endTime)
-      console.log(`endTime`, endTime)
       expect(eventLoopBlocked).toBe(false)
     }
   )
@@ -1259,6 +1258,8 @@ describe(`cycle`, () => {
   it.todo(`fails if no name is provided`)
 
   it.todo(`cycle properties must be defined in a consistent order`)
+
+  it.todo(`cycle names must be unique within each state`)
 
   it.concurrent(`returns a valid state cycle definition`, async () => {
     const machine = createMachine(() => ({
