@@ -386,14 +386,14 @@ describe(`createMachine`, () => {
       life: [
         cycle({
           name: `Test cycle`,
-          run: () => {
+          run: effect(() => {
             return new Promise((res) => {
               setTimeout(() => {
                 cycleRan = true
                 res(null)
               }, 100)
             })
-          },
+          }),
         }),
       ],
     })
@@ -1282,8 +1282,25 @@ describe(`createMachine`, () => {
     }
   )
 
-  test.todo(
-    `effect methods besides effect()/effect.wait() throw errors when passed to cycle() or when called outside of cycle()/signal()`
+  test.concurrent(
+    `effect methods besides effect()/effect.wait() throw errors when passed to cycle.run() or when called outside of cycle.run()`,
+    async () => {
+      const machine = createMachine(() => ({
+        states: {
+          StateOne,
+        },
+      }))
+
+      const StateOne = machine.state({
+        life: [
+          cycle({
+            run: effect.onTransition(({}) => ({ value: null })),
+          }),
+        ],
+      })
+
+      await expect(machine.onStop()).rejects.toThrow()
+    }
   )
 
   test.todo(
@@ -1406,7 +1423,10 @@ describe(`cycle`, () => {
       })
     ).toEqual({
       name: `test`,
-      run: expect.any(Function),
+      run: {
+        type: `EffectHandler`,
+        effectHandler: expect.any(Function),
+      },
       thenGoTo: expect.any(Function),
       condition: expect.any(Function),
     })

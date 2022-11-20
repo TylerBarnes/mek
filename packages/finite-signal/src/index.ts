@@ -10,8 +10,10 @@ type OnTransitionDefinition = {
 type SignalDefinition = OnTransitionDefinition
 
 export const effect = Object.assign(
-  (fn: (args: FunctionArgs) => any | Promise<any>) => (args: FunctionArgs) =>
-    fn(args),
+  (fn: (args: FunctionArgs) => any | Promise<any>) => ({
+    type: `EffectHandler`,
+    effectHandler: (args: FunctionArgs) => fn(args),
+  }),
   {
     // lazy: (fn) => fn(),
     wait:
@@ -48,10 +50,15 @@ export type MachineInputType = {
 
 type CycleFunction = (args: FunctionArgs) => Promise<any>
 
+type EffectHandlerDefinition = {
+  type: `EffectHandler`
+  effectHandler: CycleFunction
+}
+
 type LifeCycle = {
   condition?: (args: FunctionArgs) => boolean
   thenGoTo?: () => State
-  run?: CycleFunction
+  run?: EffectHandlerDefinition
 }
 
 type LifeCycleList = Array<LifeCycle>
@@ -346,15 +353,21 @@ class State extends Definition<StateDefinition> {
 
       const runExists = `run` in cycle
 
-      if (runExists && typeof cycle.run !== `function`) {
-        throw new Error(
-          `Life cycle run must be a function. State: ${this.name}`
+      if (
+        runExists &&
+        (typeof cycle.run?.effectHandler !== `function` ||
+          cycle.run?.type !== `EffectHandler`)
+      ) {
+        return this.fatalError(
+          new Error(
+            `Life cycle run must be an effect function. State: ${this.name}. @TODO add docs link`
+          )
         )
       }
 
-      if (runExists && typeof cycle.run === `function`) {
+      if (runExists) {
         try {
-          runReturn = (await cycle.run({ context })) || {}
+          runReturn = (await cycle.run.effectHandler({ context })) || {}
         } catch (e) {
           return this.fatalError(
             new Error(
