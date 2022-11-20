@@ -1,3 +1,4 @@
+type FunctionArgs = { context?: any }
 type TransitionHandlerArgs = { currentState: State; previousState: State }
 type OnTransitionDefinition = {
   type: `OnTransitionDefinition`
@@ -8,29 +9,33 @@ type OnTransitionDefinition = {
 
 type SignalDefinition = OnTransitionDefinition
 
-export const effect = Object.assign((fn, effectOptions?: any) => () => fn(), {
-  // lazy: (fn, effectOptions?: any) => fn(),
-  wait:
-    (time = 1, callback?: (...stuff: any) => void | Promise<void>) =>
-    () =>
-      new Promise((res) =>
-        setTimeout(async () => {
-          await callback?.()
-          res(null)
-        }, time * 1000)
-      ),
-  // respond: (signal, fn) => fn(),
-  // request: (state, fn) => fn(),
-  // waitFor: state => {},
-  // waitForSequence: state => {},
-  // waitForOrderedSequence: state => {},
-  onTransition: (
-    onTransitionHandler?: OnTransitionDefinition["onTransitionHandler"]
-  ): OnTransitionDefinition => ({
-    type: `OnTransitionDefinition`,
-    onTransitionHandler: onTransitionHandler || ((args) => ({ value: args })),
-  }),
-})
+export const effect = Object.assign(
+  (fn: (args: FunctionArgs) => any | Promise<any>) => (args: FunctionArgs) =>
+    fn(args),
+  {
+    // lazy: (fn) => fn(),
+    wait:
+      (time = 1, callback?: (...stuff: any) => void | Promise<void>) =>
+      () =>
+        new Promise((res) =>
+          setTimeout(async () => {
+            await callback?.()
+            res(null)
+          }, time * 1000)
+        ),
+    // respond: (signal, fn) => fn(),
+    // request: (state, fn) => fn(),
+    // waitFor: state => {},
+    // waitForSequence: state => {},
+    // waitForOrderedSequence: state => {},
+    onTransition: (
+      onTransitionHandler?: OnTransitionDefinition["onTransitionHandler"]
+    ): OnTransitionDefinition => ({
+      type: `OnTransitionDefinition`,
+      onTransitionHandler: onTransitionHandler || ((args) => ({ value: args })),
+    }),
+  }
+)
 
 export const cycle = Object.assign((definition) => definition, {
   //   onRequest: definition => definition,
@@ -41,10 +46,10 @@ export type MachineInputType = {
   states: string[]
 }
 
-type CycleFunction = (context?: any) => Promise<void>
+type CycleFunction = (args: FunctionArgs) => Promise<any>
 
 type LifeCycle = {
-  condition?: (context?: any) => boolean
+  condition?: (args: FunctionArgs) => boolean
   thenGoTo?: () => State
   run?: CycleFunction
 }
@@ -259,6 +264,7 @@ class State extends Definition<StateDefinition> {
   private runningLifeCycle: boolean = false
   private done: boolean = false
   private nextState: State
+  private context: any = {}
 
   errors = {
     createMachineDefined: `States must be defined with createMachine().state(stateDefinition)`,
@@ -277,7 +283,7 @@ class State extends Definition<StateDefinition> {
     this.nextState = null
   }
 
-  async [initializeState]() {
+  async [initializeState]({ context }: FunctionArgs) {
     if (this.initialized) {
       throw new Error(
         `State ${this.name} has already been initialized. States can only be initialized one time. Either this is a bug or you're abusing the public api :)`
@@ -286,10 +292,12 @@ class State extends Definition<StateDefinition> {
       this.initialized = true
     }
 
-    await this.runLifeCycles(null)
+    this.context = context || {}
+
+    await this.runLifeCycles()
   }
 
-  private async runLifeCycles(context: any) {
+  private async runLifeCycles() {
     if (this.done) {
       throw new Error(
         `State ${this.name} has already run. Cannot run life cycles again.`
@@ -303,6 +311,9 @@ class State extends Definition<StateDefinition> {
     }
 
     const lifeCycles = this.definition.life || []
+    const { context } = this
+
+    let runReturn = {}
 
     let cycleIndex = -1
 
@@ -319,7 +330,7 @@ class State extends Definition<StateDefinition> {
 
       if (conditionExists && typeof cycle.condition === `function`) {
         try {
-          conditionMet = cycle.condition(context)
+          conditionMet = cycle.condition({ context })
         } catch (e) {
           return this.fatalError(
             new Error(
@@ -343,7 +354,7 @@ class State extends Definition<StateDefinition> {
 
       if (runExists && typeof cycle.run === `function`) {
         try {
-          await cycle.run(context)
+          runReturn = (await cycle.run({ context })) || {}
         } catch (e) {
           return this.fatalError(
             new Error(
@@ -376,16 +387,16 @@ class State extends Definition<StateDefinition> {
     }
 
     this.runningLifeCycle = false
-    this.goToNextState()
+    this.goToNextState(runReturn)
   }
 
-  private goToNextState() {
+  private goToNextState(context: any = {}) {
     const machine = this[machineInstance]
 
     this.done = true
 
     if (this.nextState) {
-      machine[transition](this.nextState)
+      machine[transition](this.nextState, context)
     } else {
       machine.stop()
     }
@@ -482,7 +493,7 @@ class Machine {
     this[resolveMachineStart]()
 
     if (this.initialState) {
-      this[transition](this.initialState)
+      this[transition](this.initialState, {})
     }
 
     return Promise.resolve()
@@ -506,7 +517,7 @@ class Machine {
     return Promise.resolve()
   }
 
-  private [transition](nextState: State) {
+  private [transition](nextState: State, context: any) {
     if (nextState[machineInstance] !== this) {
       const wrongMachineName = nextState[machineInstance]?.name
       const nextStateName = nextState[machineInstance]
@@ -549,11 +560,11 @@ class Machine {
 
       if (shouldContinue) {
         setImmediate(() => {
-          this.currentState[initializeState]()
+          this.currentState[initializeState]({ context })
         })
       }
     } else {
-      this.currentState[initializeState]()
+      this.currentState[initializeState]({ context })
     }
   }
 

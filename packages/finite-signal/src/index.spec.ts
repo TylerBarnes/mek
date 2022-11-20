@@ -1205,6 +1205,82 @@ describe(`createMachine`, () => {
     }
   )
 
+  test.concurrent(
+    `data returned from run: effect() is passed as args into the next state if thenGoTo is defined.`,
+    async () => {
+      const machine = createMachine(() => ({
+        states: {
+          StateOne,
+          StateTwo,
+          Done,
+        },
+      }))
+
+      const value = {
+        foo: `ya`,
+      }
+
+      const StateOne = machine.state({
+        life: [
+          cycle({
+            name: `Go to state 2`,
+            run: effect(() => {
+              return value
+            }),
+            thenGoTo: () => StateTwo,
+          }),
+        ],
+      })
+
+      const assertValIsEqual = (val: typeof value) => {
+        expect(val).toBe(value)
+      }
+
+      let cycleFnCount = 0
+
+      const condition = ({ context }) => {
+        cycleFnCount++
+        assertValIsEqual(context)
+        return context
+      }
+
+      const run = effect(condition)
+
+      const StateTwo = machine.state({
+        life: [
+          cycle({
+            condition,
+            run,
+          }),
+          cycle({
+            run: effect((args) => {
+              condition(args)
+              // returning from run will only be passed on if this cycle transitions to a new state
+              return { foo: `nope` }
+            }),
+          }),
+          cycle({
+            condition,
+            run,
+            thenGoTo: () => Done,
+          }),
+        ],
+      })
+
+      const Done = machine.state({
+        life: [
+          cycle({
+            condition,
+            run,
+          }),
+        ],
+      })
+
+      await machine.onStop()
+
+      expect(cycleFnCount).toBe(7)
+    }
+  )
 
   test.todo(
     `effect methods besides effect()/effect.wait() throw errors when passed to cycle() or when called outside of cycle()/signal()`
