@@ -1,4 +1,4 @@
-type FunctionArgs = { context?: any }
+type FunctionArgs = { context: any }
 type TransitionHandlerArgs = { currentState: State; previousState: State }
 type OnTransitionDefinition = {
   type: `OnTransitionDefinition`
