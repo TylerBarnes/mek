@@ -22,5 +22,8 @@
     "build": "swc ./src -d ./dist --source-maps",
     "benchmark": "pnpm run build && node ./dist/benchmark",
     "flame": "pnpm run build && 0x -o ./dist/benchmark.js"
+  },
+  "dependencies": {
+    "hyperid": "^3.0.1"
   }
 }

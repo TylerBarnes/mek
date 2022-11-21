@@ -1,3 +1,7 @@
+import hyperid from "hyperid"
+
+const makeId = hyperid()
+
 type FunctionArgs = { context: any }
 type TransitionHandlerArgs = { currentState: State; previousState: State }
 type OnTransitionDefinition = {
@@ -274,6 +278,7 @@ class Signal extends Definition<SignalDefinition> {
     let didRun = false
     let unsubscribed = false
     let invocationCount = 0
+    let subscriberIds = new Set<string>()
 
     const api = {
       [definitionInstance]: this as Signal,
@@ -282,7 +287,12 @@ class Signal extends Definition<SignalDefinition> {
         unsubscribe: () => unsubscribed,
         invocationCount: () => invocationCount,
       },
-      unsubscribe: () => (unsubscribed = true),
+      unsubscribe: () => {
+        unsubscribed = true
+        subscriberIds.forEach((subscriberId) =>
+          machine.onTransitionListeners.delete(subscriberId)
+        )
+      },
     }
 
     type Callback = (value: any) => void
@@ -305,7 +315,10 @@ class Signal extends Definition<SignalDefinition> {
     }
 
     const subscribe = (callback: Callback) => {
-      machine.onTransitionListeners.push((args) =>
+      const subscriberId = makeId()
+      subscriberIds.add(subscriberId)
+
+      machine.onTransitionListeners.set(subscriberId, (args) =>
         createTransitionListener(args, callback)
       )
     }
@@ -488,7 +501,10 @@ class Machine {
   private transitionCountCheckpoint = 0
   private lastTransitionCountCheckTime = Date.now()
 
-  public onTransitionListeners: ((args: TransitionHandlerArgs) => void)[] = []
+  public onTransitionListeners = new Map<
+    string,
+    (args: TransitionHandlerArgs) => void
+  >()
 
   constructor(definition: MachineDefinitionFunction) {
     this.createMachineLifeCyclePromises()
