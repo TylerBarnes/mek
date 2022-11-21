@@ -1,13 +1,18 @@
 type FunctionArgs = { context: any }
 type TransitionHandlerArgs = { currentState: State; previousState: State }
 type OnTransitionDefinition = {
-  type: `OnTransitionDefinition`
-  onTransitionHandler: (args: TransitionHandlerArgs) => {
+  handler: (args: TransitionHandlerArgs) => {
     value: any
   } | null
 }
+type WaitForStateDefinition = {
+  handler: () => State
+}
 
-type SignalDefinition = OnTransitionDefinition
+type SignalDefinition = {
+  type: `WaitForState` | `OnTransitionDefinition`
+  handler: (args?: TransitionHandlerArgs) => any | State
+}
 
 export const effect = Object.assign(
   (fn: (args: FunctionArgs) => any | Promise<any>) => ({
@@ -27,14 +32,19 @@ export const effect = Object.assign(
         ),
     // respond: (signal, fn) => fn(),
     // request: (state, fn) => fn(),
-    // waitFor: state => {},
+    waitForState: (
+      stateFn: WaitForStateDefinition["handler"]
+    ): SignalDefinition => ({
+      type: `WaitForState`,
+      handler: stateFn,
+    }),
     // waitForSequence: state => {},
     // waitForOrderedSequence: state => {},
     onTransition: (
-      onTransitionHandler?: OnTransitionDefinition["onTransitionHandler"]
-    ): OnTransitionDefinition => ({
+      handler?: OnTransitionDefinition["handler"]
+    ): SignalDefinition => ({
       type: `OnTransitionDefinition`,
-      onTransitionHandler: onTransitionHandler || ((args) => ({ value: args })),
+      handler: handler || ((args) => ({ value: args })),
     }),
   }
 )
@@ -217,9 +227,47 @@ class Signal extends Definition<SignalDefinition> {
       machine.fatalError(
         new Error(`Signal defined with createMachine().signal() is not added in the machine definition. @TODO add link to docs
 
-          Your code: ${this.definition.onTransitionHandler.toString()}`)
+          Your code: ${this.definition.toString()}`)
       )
     }
+  }
+
+  waitForState(machine: Machine) {
+    let desiredState: State
+
+    try {
+      desiredState = this.definition.handler()
+    } catch (e) {
+      this.fatalError(
+        new Error(`waitForState() call threw error:\n\n${e.stack}`)
+      )
+    }
+
+    let subscriber: ReturnType<typeof this.subscribe>
+
+    this.definition.handler = ({ currentState }) => {
+      if (currentState === desiredState) {
+        subscriber.unsubscribe()
+        return { value: currentState }
+      }
+
+      return null
+    }
+
+    return Object.assign(
+      () => {
+        subscriber = this.subscribe(machine)
+
+        return new Promise((res, _rej) => {
+          subscriber((value) => {
+            res(value)
+          })
+        })
+      },
+      {
+        [definitionInstance]: this as Signal,
+      }
+    )
   }
 
   subscribe(machine: Machine) {
@@ -247,7 +295,7 @@ class Signal extends Definition<SignalDefinition> {
         return
       }
 
-      const { value } = this.definition.onTransitionHandler(args) || {}
+      const { value } = this.definition.handler(args) || {}
 
       if (value) {
         invocationCount++
@@ -845,7 +893,9 @@ class Machine {
       `Signal`
     ) as Signal
 
-    if (signalDefinition.type === `OnTransitionDefinition`) {
+    if (signalDefinition.type === `WaitForState`) {
+      return signal.waitForState(this)
+    } else if (signalDefinition.type === `OnTransitionDefinition`) {
       return signal.subscribe(this)
     }
   }

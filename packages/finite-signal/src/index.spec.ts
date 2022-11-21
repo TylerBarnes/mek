@@ -1303,8 +1303,54 @@ describe(`createMachine`, () => {
     }
   )
 
-  test.todo(
-    `signal(effect.waitFor()) returns a promise that resolves the first time a given state is entered`
+  test.concurrent(
+    `signal(effect.waitForState()) returns a promise that resolves the first time a given state is entered`,
+    async () => {
+      const machine = createMachine(() => ({
+        states: {
+          StateOne,
+          StateTwo,
+        },
+
+        signals: {
+          waitForState2,
+        },
+      }))
+
+      const StateOne = machine.state({
+        life: [
+          cycle({
+            name: `Go to state 2`,
+            thenGoTo: () => StateTwo,
+          }),
+        ],
+      })
+
+      let state2Count = 0
+
+      const StateTwo = machine.state({
+        life: [
+          cycle({
+            name: `back to state 2`,
+            condition: () => state2Count < 2,
+            run: effect(() => state2Count++),
+            thenGoTo: () => StateTwo,
+          }),
+        ],
+      })
+
+      const waitForState2 = machine.signal(effect.waitForState(() => StateTwo))
+
+      const state = await waitForState2()
+      expect(state.constructor.toString()).toContain(
+        `class State extends Definition`
+      )
+
+      const stateAgain = await waitForState2()
+      expect(stateAgain.constructor.toString()).toContain(
+        `class State extends Definition`
+      )
+    }
   )
 
   test.todo(
@@ -1462,10 +1508,10 @@ describe(`effect`, () => {
 
       //
       ;[definitionDefault, definition].forEach((def, index) => {
-        expect(def).toHaveProperty(`onTransitionHandler`)
+        expect(def).toHaveProperty(`handler`)
         expect(def.type).toBe(`OnTransitionDefinition`)
 
-        const result = def.onTransitionHandler({
+        const result = def.handler({
           // @ts-ignore
           currentState: { name: `One` },
           // @ts-ignore
