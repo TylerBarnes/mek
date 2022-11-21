@@ -314,7 +314,7 @@ class Signal extends Definition<SignalDefinition> {
       }
     }
 
-    const subscribe = (callback: Callback) => {
+    const subscribe = (callback?: Callback) => {
       const subscriberId = makeId()
       subscriberIds.add(subscriberId)
 
