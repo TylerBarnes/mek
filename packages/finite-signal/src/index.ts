@@ -18,6 +18,20 @@ type SignalDefinition = {
   handler: (args?: TransitionHandlerArgs) => any | State
 }
 
+export const state = (
+  machine: () => ReturnType<typeof createMachine>,
+  state: StateDefinition
+) => {
+  console.log(3, machine)
+  setImmediate(() => {
+    console.log(4, machine)
+  })
+  if (!machine) {
+    return
+  }
+  return machine().machineInstance.initializeDefinition(state, `State`) as State
+}
+
 export const effect = Object.assign(
   (fn: (args: FunctionArgs) => any | Promise<any>) => ({
     type: `EffectHandler`,
@@ -84,11 +98,15 @@ export type StateDefinition = {
 type MachineStates = {
   [StateName: string]: State
 }
+type MachineSignals = {
+  [SignalName: string]: ReturnType<Machine["signal"]>
+}
 
 export type MachineDefinition = {
   name?: string
 
   states: MachineStates
+  signals?: MachineSignals
 
   onError?: (error: Error) => Promise<void> | void
 
@@ -99,18 +117,20 @@ export type MachineDefinition = {
 
 type MachineDefinitionFunction = () => MachineDefinition
 
-const internal = Symbol(`private`)
-const addDefinitionName = Symbol(`add-definition-name`)
-const machineInstance = Symbol(`machine-instance`)
-const definitionInstance = Symbol(`definition-instance`)
-const initializeState = Symbol(`initialize-state`)
-const transition = Symbol(`transition`)
-const resolveMachineEnd = Symbol(`resolve-machine-end`)
-const rejectMachineEnd = Symbol(`reject-machine-end`)
-const resolveMachineStart = Symbol(`resolve-machine-start`)
-const rejectMachineStart = Symbol(`reject-machine-start`)
+export const internal = Symbol(`private`)
+export const addDefinitionName = Symbol(`add-definition-name`)
+export const machineInstance = Symbol(`machine-instance`)
+export const definitionInstance = Symbol(`definition-instance`)
+export const initializeState = Symbol(`initialize-state`)
+export const transition = Symbol(`transition`)
+export const resolveMachineEnd = Symbol(`resolve-machine-end`)
+export const rejectMachineEnd = Symbol(`reject-machine-end`)
+export const resolveMachineStart = Symbol(`resolve-machine-start`)
+export const rejectMachineStart = Symbol(`reject-machine-start`)
 
-class Definition<DefinitionType extends SignalDefinition | StateDefinition> {
+export class Definition<
+  DefinitionType extends SignalDefinition | StateDefinition
+> {
   definition: DefinitionType extends SignalDefinition
     ? SignalDefinition
     : StateDefinition
@@ -163,7 +183,7 @@ class Definition<DefinitionType extends SignalDefinition | StateDefinition> {
     return this[machineInstance].fatalError(error)
   }
 
-  private validateDefinition(
+  validateDefinition(
     definition: DefinitionType extends SignalDefinition
       ? SignalDefinition
       : StateDefinition
@@ -210,7 +230,7 @@ class Definition<DefinitionType extends SignalDefinition | StateDefinition> {
   }
 }
 
-class Signal extends Definition<SignalDefinition> {
+export class Signal extends Definition<SignalDefinition> {
   errors = {
     createMachineDefined: `Signals must be defined with createMachine().signal(signalDefinition)`,
   }
@@ -224,7 +244,7 @@ class Signal extends Definition<SignalDefinition> {
     setImmediate(() => this.initializeSignal())
   }
 
-  private initializeSignal() {
+  initializeSignal() {
     const machine = this[machineInstance]
 
     if (!machine.addedSignalReferences.find((signal) => signal === this)) {
@@ -269,7 +289,7 @@ class Signal extends Definition<SignalDefinition> {
         })
       },
       {
-        [definitionInstance]: this as Signal,
+        definitionInstance: this as Signal,
       }
     )
   }
@@ -281,7 +301,7 @@ class Signal extends Definition<SignalDefinition> {
     let subscriberIds = new Set<string>()
 
     const api = {
-      [definitionInstance]: this as Signal,
+      definitionInstance: this as Signal,
       did: {
         run: () => didRun,
         unsubscribe: () => unsubscribed,
@@ -327,12 +347,12 @@ class Signal extends Definition<SignalDefinition> {
   }
 }
 
-class State extends Definition<StateDefinition> {
-  private initialized: boolean = false
-  private runningLifeCycle: boolean = false
-  private done: boolean = false
-  private nextState: State
-  private context: any = {}
+export class State extends Definition<StateDefinition> {
+  initialized: boolean = false
+  runningLifeCycle: boolean = false
+  done: boolean = false
+  nextState: State
+  context: any = {}
 
   errors = {
     createMachineDefined: `States must be defined with createMachine().state(stateDefinition)`,
@@ -365,7 +385,7 @@ class State extends Definition<StateDefinition> {
     await this.runLifeCycles()
   }
 
-  private async runLifeCycles() {
+  async runLifeCycles() {
     if (this.done) {
       throw new Error(
         `State ${this.name} has already run. Cannot run life cycles again.`
@@ -464,7 +484,7 @@ class State extends Definition<StateDefinition> {
     this.goToNextState(runReturn)
   }
 
-  private goToNextState(context: any = {}) {
+  goToNextState(context: any = {}) {
     const machine = this[machineInstance]
 
     this.done = true
@@ -477,29 +497,29 @@ class State extends Definition<StateDefinition> {
   }
 }
 
-class Machine {
-  private name: string
-  private machineDefinition: MachineDefinition
+export class Machine {
+  name: string
+  machineDefinition: MachineDefinition
 
-  private addedStateReferences: State[] = []
+  addedStateReferences: State[] = []
   public addedSignalReferences: Signal[] = []
-  private definitionReferencesToStateNames = new Map<State, string>()
-  private definitionReferencesToSignalNames = new Map<State, string>()
+  definitionReferencesToStateNames = new Map<State, string>()
+  definitionReferencesToSignalNames = new Map<State, string>()
 
-  private initialState: State
-  private currentState: State
+  initialState: State
+  currentState: State
 
-  private endPromise: Promise<void>
-  private awaitingEndPromise: boolean = false
+  endPromise: Promise<void>
+  awaitingEndPromise: boolean = false
 
-  private startPromise: Promise<void>
-  private awaitingStartPromise: boolean = false
+  startPromise: Promise<void>
+  awaitingStartPromise: boolean = false
 
-  private machineStatus: `running` | `stopped` = `stopped`
+  machineStatus: `running` | `stopped` = `stopped`
 
-  private transitionCount = 0
-  private transitionCountCheckpoint = 0
-  private lastTransitionCountCheckTime = Date.now()
+  transitionCount = 0
+  transitionCountCheckpoint = 0
+  lastTransitionCountCheckTime = Date.now()
 
   public onTransitionListeners = new Map<
     string,
@@ -522,7 +542,7 @@ class Machine {
     })
   }
 
-  private createMachineLifeCyclePromises() {
+  createMachineLifeCyclePromises() {
     this.awaitingEndPromise = false
     this.awaitingStartPromise = false
 
@@ -594,7 +614,7 @@ class Machine {
     return Promise.resolve()
   }
 
-  private [transition](nextState: State, context: any) {
+  [transition](nextState: State, context: any) {
     if (nextState[machineInstance] !== this) {
       const wrongMachineName = nextState[machineInstance]?.name
       const nextStateName = nextState[machineInstance]
@@ -645,7 +665,7 @@ class Machine {
     }
   }
 
-  private checkForInfiniteTransitionLoop() {
+  checkForInfiniteTransitionLoop() {
     const now = Date.now()
 
     const lastCheckWasOver1Second =
@@ -675,7 +695,7 @@ class Machine {
     return true
   }
 
-  private cloneState(state: State, machine: Machine = this) {
+  cloneState(state: State, machine: Machine = this) {
     const machineIsStopped = !this.assertIsRunning()
 
     if (machineIsStopped) {
@@ -687,9 +707,7 @@ class Machine {
     })
   }
 
-  private initializeMachineDefinition(
-    inputDefinition: MachineDefinitionFunction
-  ) {
+  initializeMachineDefinition(inputDefinition: MachineDefinitionFunction) {
     if (typeof inputDefinition !== `function`) {
       return this.fatalError(
         new Error(
@@ -740,7 +758,7 @@ class Machine {
     throw error
   }
 
-  private setInitialStateDefinition() {
+  setInitialStateDefinition() {
     if (this.initialState) {
       return
     }
@@ -749,7 +767,7 @@ class Machine {
     this.initialState = this.machineDefinition.states[initialStateName]
   }
 
-  private buildAddedReferences(type: `State` | `Signal`) {
+  buildAddedReferences(type: `State` | `Signal`) {
     const lowercase = `a lowercase letter`
     const uppercase = `an uppercase letter`
 
@@ -774,8 +792,9 @@ class Machine {
       },
     }[type]
 
-    const machineDefinedReferences =
-      this.machineDefinition[values.machineProperty]
+    const machineDefinedReferences = this.machineDefinition[
+      values.machineProperty
+    ] as MachineDefinition["states"] | MachineDefinition["signals"]
 
     if (!machineDefinedReferences) {
       return
@@ -794,7 +813,7 @@ class Machine {
         if (
           !(
             definition instanceof values.instance ||
-            definition?.[definitionInstance] instanceof values.instance
+            definition?.definitionInstance instanceof values.instance
           )
         ) {
           return this.fatalError(
@@ -821,7 +840,7 @@ class Machine {
           )
         }
 
-        const reference = definition[definitionInstance] || definition
+        const reference = definition.definitionInstance || definition
 
         values.referenceMap.set(reference, definitionName)
       }
@@ -871,7 +890,7 @@ class Machine {
     })
   }
 
-  private initializeDefinition(
+  initializeDefinition(
     definition: StateDefinition | SignalDefinition,
     type: `State` | `Signal`
   ) {
@@ -945,14 +964,16 @@ export function createMachine(definition: MachineDefinitionFunction): {
   onStart: Machine["onStart"]
   onStop: Machine["onStop"]
   stop: Machine["stop"]
+  machineInstance: Machine
 } {
   const machine = new Machine(definition)
 
-  return {
+  return Object.assign(() => machine, {
     state: machine.state.bind(machine),
     signal: machine.signal.bind(machine),
     onStart: machine.onStart.bind(machine),
     onStop: machine.onStop.bind(machine),
     stop: machine.stop.bind(machine),
-  }
+    machineInstance: machine,
+  })
 }

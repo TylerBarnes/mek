@@ -1,10 +1,11 @@
 import { createMachine, cycle, effect } from "./index"
+import { define } from "./mekk"
 
 describe(`createMachine`, () => {
-  it.concurrent(
+  it.concurrent.only(
     `can create and run a minimal machine without throwing errors`,
     async () => {
-      const machine = createMachine(() => ({
+      const machine = define.machine(() => ({
         states: {},
       }))
 
@@ -13,18 +14,19 @@ describe(`createMachine`, () => {
     }
   )
 
-  it.concurrent(
+  it.concurrent.only(
     `can create and run a minimal machine and state without throwing errors`,
     async () => {
-      const machine = createMachine(() => ({
+      const machine = define.machine(() => ({
         states: {
           TestState,
         },
       }))
 
-      const TestState = machine.state({
+      const TestState = define.state(() => ({
+        machine,
         life: [],
-      })
+      }))
 
       await machine.onStart(() => {
         expect(TestState.name).toBe(`TestState`)
@@ -34,24 +36,25 @@ describe(`createMachine`, () => {
     }
   )
 
-  it.concurrent(
-    `throws an error if a state is not defined on the machine definition, even if it's added with machine.state()`,
+  it.concurrent.only(
+    `throws an error if a state does not define a machine on it's definition, even if the state is added to the machines definition`,
     async () => {
       await expect(
         new Promise(async (res, rej) => {
-          const machine = createMachine(() => ({
-            states: {},
+          const machine = define.machine(() => ({
+            states: { StateOne },
             onError: (error) => {
               expect(error.message).toContain(
-                `Added State does not match any defined State.`
+                `State \"StateOne\" does not have a machine defined in its state definition.`
               )
               rej(error)
             },
           }))
 
-          machine.state({
+          // @ts-ignore
+          const StateOne = define.state(() => ({
             life: [],
-          })
+          }))
 
           // onStop will resolve before onError is called
           await machine.onStop()
