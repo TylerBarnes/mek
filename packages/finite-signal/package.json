@@ -16,10 +16,12 @@
     "typescript": "^4.8.4"
   },
   "scripts": {
-    "dev": "ts-node-dev --transpile-only ./src/example.ts",
+    "dev": "ts-node-dev ./src/example/index.ts",
+    "exp": "ts-node-dev ./src/experiment/example.ts",
     "test": "jest --maxConcurrency=30",
     "test:watch": "jest --watch --maxConcurrency=30",
     "build": "swc ./src -d ./dist --source-maps",
+    "example": "pnpm run build && node ./dist/example",
     "benchmark": "pnpm run build && node ./dist/benchmark",
     "flame": "pnpm run build && 0x -o ./dist/benchmark.js"
   },
