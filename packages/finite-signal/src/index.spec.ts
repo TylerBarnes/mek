@@ -550,8 +550,8 @@ describe(`create.state`, () => {
     }
   )
 
-  it.concurrent(`runs cycle effects when a state is entered`, async () => {
-    const machine = createMachine(() => ({
+  it.concurrent.only(`runs cycle effects when a state is entered`, async () => {
+    const machine = create.machine(() => ({
       states: {
         TestState,
       },
@@ -559,7 +559,8 @@ describe(`create.state`, () => {
 
     let cycleRan = false
 
-    const TestState = machine.state({
+    const TestState = create.state(() => ({
+      machine,
       life: [
         cycle({
           name: `Test cycle`,
@@ -573,7 +574,7 @@ describe(`create.state`, () => {
           }),
         }),
       ],
-    })
+    }))
 
     await machine.onStop()
 
