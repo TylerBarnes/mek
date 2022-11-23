@@ -1,7 +1,7 @@
 import { createMachine, cycle, effect } from "./index"
 import { define } from "./mekk"
 
-describe(`createMachine`, () => {
+describe(`define.machine`, () => {
   it.concurrent.only(
     `can create and run a minimal machine without throwing errors`,
     async () => {
@@ -36,6 +36,309 @@ describe(`createMachine`, () => {
     }
   )
 
+  it.concurrent(
+    `machine.onStart() returns a promise that resolves when the machine has started running`,
+    async () => {
+      const machine = createMachine(() => ({
+        states: {
+          TestState,
+        },
+      }))
+
+      const TestState = machine.state({
+        life: [],
+      })
+
+      expect(TestState.name).toBeUndefined()
+      await machine.onStart()
+      expect(TestState.name).toBe(`TestState`)
+    }
+  )
+
+  it.concurrent(
+    `machine.onStop() returns a promise that resolves when the machine has stopped running`,
+    async () => {
+      let flag = false
+
+      const machine = createMachine(() => ({
+        states: {
+          TestState: machine.state({
+            life: [
+              cycle({
+                name: `Test`,
+                run: effect(async () => {
+                  await new Promise((res) => setTimeout(res, 100))
+                  setImmediate(() => {
+                    flag = true
+                  })
+                }),
+              }),
+            ],
+          }),
+        },
+      }))
+
+      const startTime = Date.now()
+      await machine.onStop()
+      const endTime = Date.now()
+      const duration = endTime - startTime
+      expect(duration).toBeGreaterThanOrEqual(100)
+      expect(flag).toBe(false)
+    }
+  )
+
+  it.concurrent(
+    `onError gracefully stops the machine, while omitting it throws the error`,
+    async () => {
+      let onErrorWasCalled = false
+
+      const machineOnError = createMachine(() => ({
+        onError: () => {
+          onErrorWasCalled = true
+        },
+
+        states: {},
+      }))
+
+      machineOnError.state({
+        life: [],
+      })
+
+      await machineOnError.onStop()
+      expect(onErrorWasCalled).toBe(true)
+
+      const machineNoOnError = createMachine(() => ({
+        states: {},
+      }))
+
+      machineNoOnError.state({
+        life: [],
+      })
+
+      await Promise.all([
+        expect(machineNoOnError.onStart()).rejects.toThrow(),
+        expect(machineNoOnError.onStop()).rejects.toThrow(),
+      ])
+    }
+  )
+
+  test.concurrent(
+    `the first state in the states: {} object in the machine definition is the initial state`,
+    async () => {
+      const machine = createMachine(() => ({
+        states: {
+          StateOne,
+          StateTwo,
+        },
+
+        signals: {
+          onTransition,
+        },
+      }))
+
+      const StateOne = machine.state({
+        life: [
+          cycle({
+            name: `go to state 2`,
+            thenGoTo: () => StateTwo,
+          }),
+        ],
+      })
+
+      const StateTwo = machine.state({
+        life: [
+          cycle({
+            name: `done`,
+          }),
+        ],
+      })
+
+      const onTransition = machine.signal(effect.onTransition())
+
+      onTransition(({ previousState, currentState }) => {
+        expect(currentState.name).toBe(`StateOne`)
+        expect(previousState).toBeUndefined()
+        onTransition.unsubscribe()
+      })
+
+      await machine.onStop()
+
+      expect(onTransition.did.run()).toBe(true)
+      expect(onTransition.did.unsubscribe()).toBe(true)
+      expect(onTransition.did.invocationCount()).toBe(1)
+    }
+  )
+
+  it.concurrent(
+    `when a machine has the initial property defined, that state is the initial state instead of the first state in the states object`,
+    async () => {
+      const machine = createMachine(() => ({
+        initial: StateTwo,
+        states: {
+          StateOne,
+          StateTwo,
+        },
+
+        signals: {
+          onTransition,
+        },
+      }))
+
+      const StateOne = machine.state({
+        life: [
+          cycle({
+            name: `go to state 2`,
+            thenGoTo: () => StateTwo,
+          }),
+        ],
+      })
+
+      const StateTwo = machine.state({
+        life: [
+          cycle({
+            name: `done`,
+          }),
+        ],
+      })
+
+      const onTransition = machine.signal(effect.onTransition())
+
+      onTransition(({ previousState, currentState }) => {
+        expect(currentState.name).toBe(`StateOne`)
+        expect(previousState).toBeUndefined()
+        onTransition.unsubscribe()
+      })
+
+      await machine.onStop()
+
+      expect(onTransition.did.run()).toBe(true)
+      expect(onTransition.did.unsubscribe()).toBe(true)
+      expect(onTransition.did.invocationCount()).toBe(1)
+    }
+  )
+
+  test.concurrent(
+    `10 million transitions take less than 5 seconds`,
+    async () => {
+      const iterationMax = 10_000_000
+      const startTime = Date.now()
+      let counter = 0
+
+      const machine = createMachine(() => ({
+        states: {
+          StateOne,
+          StateTwo,
+        },
+
+        options: {
+          maxTransitionsPerSecond: iterationMax,
+        },
+      }))
+
+      const StateOne = machine.state({
+        life: [
+          cycle({
+            name: `only cycle`,
+            condition: () => counter <= iterationMax,
+            run: effect(() => {
+              counter++
+            }),
+            thenGoTo: () => StateTwo,
+          }),
+        ],
+      })
+
+      const StateTwo = machine.state({
+        life: [
+          cycle({
+            name: `only cycle`,
+            condition: () => counter <= iterationMax,
+            run: effect(() => {
+              counter++
+            }),
+            thenGoTo: () => StateOne,
+          }),
+        ],
+      })
+
+      await machine.onStop()
+
+      const endTime = Date.now() - startTime
+
+      expect(endTime).toBeLessThan(5000)
+    }
+  )
+
+  test.todo(
+    `machines have storage that can be accessed/mutated in states and signals`
+  )
+
+  test.todo(
+    `states have storage that is only accessible (from the state or from signals) while in that state, and persists across transitions to and from a state`
+  )
+
+  test.todo(`cycle conditions and effects can access state and machine storage`)
+
+  test.todo(`machines can be linked together and communicate via signals`)
+
+  test.todo(
+    `states can fork into multiple simultaneous state trees with cycle({ thenGoTo: () => [StateOne, StateTwo, Etc]})`
+  )
+
+  test.todo(
+    `state definitions are static and are only processed when they are defined the first time. for example conditions in thenGoTo will only run the first time (to discourage using unmappable conditionals inside thenGoTo)`
+  )
+
+  test.todo(
+    `state trees can end themselves by calling cycle.end({ condition: () => true })`
+  )
+
+  test.todo(
+    `states in forked state trees share the same storage per-state definition and per-machine`
+  )
+
+  test.todo(
+    `signals which enqueue transition requests can choose to request on the main state tree or inspect and select forked state trees to request`
+  )
+
+  test.todo(
+    `signals which subscribe to transitions can choose to subscribe on the main state tree or inspect and select forked state trees to subscribe to`
+  )
+
+  test.todo(
+    `machines can have plugins which hook into transitions, state definitions, machine definition, and machine stop/start/error`
+  )
+
+  test.todo(
+    `machine plugins can mutate the machine definition during initial start up`
+  )
+
+  test.todo(
+    `machine plugins can mutate the state definitions during initial start up`
+  )
+
+  test.todo(
+    `machine plugins can mutate machine/state storage on machine start/stop`
+  )
+
+  test.todo(
+    `when process.env.NODE_ENV === 'test', machines don't automatically start until started with machine.start()`
+  )
+
+  test.todo(
+    `machine.mergeMockDefinition() allows merging new values into the machine definition`
+  )
+
+  test.todo(
+    `machine.mergeMockDefinition() can only be called before the machine is started`
+  )
+
+  test.todo(
+    `machine.mergeMockDefinition().mergeMockState() extends State definitions`
+  )
+})
+
+describe(`define.state`, () => {
   it.concurrent.only(
     `throws an error if a state does not define a machine on it's definition, even if the state is added to the machines definition`,
     async () => {
@@ -91,31 +394,6 @@ describe(`createMachine`, () => {
           }))
 
           await machine.onStop()
-          res(null)
-        })
-      ).rejects.toThrow()
-    }
-  )
-
-  it.concurrent(
-    `throws an error if a signal is not defined on the machine definition, even if it's added with machine.signal()`,
-    async () => {
-      await expect(
-        new Promise(async (res, rej) => {
-          const machine = createMachine(() => ({
-            states: {},
-            signals: {},
-            onError: (error) => {
-              expect(error.message).toContain(
-                `Added Signal does not match any defined Signal.`
-              )
-              rej(error)
-            },
-          }))
-
-          machine.signal(effect.onTransition())
-
-          await machine.onStart()
           res(null)
         })
       ).rejects.toThrow()
@@ -200,95 +478,6 @@ describe(`createMachine`, () => {
   )
 
   it.concurrent(
-    `machine.onStart() returns a promise that resolves when the machine has started running`,
-    async () => {
-      const machine = createMachine(() => ({
-        states: {
-          TestState,
-        },
-      }))
-
-      const TestState = machine.state({
-        life: [],
-      })
-
-      expect(TestState.name).toBeUndefined()
-      await machine.onStart()
-      expect(TestState.name).toBe(`TestState`)
-    }
-  )
-
-  it.concurrent(
-    `machine.onStop() returns a promise that resolves when the machine has stopped running`,
-    async () => {
-      let flag = false
-
-      const machine = createMachine(() => ({
-        states: {
-          TestState: machine.state({
-            life: [
-              cycle({
-                name: `Test`,
-                run: effect(async () => {
-                  await new Promise((res) => setTimeout(res, 100))
-                  setImmediate(() => {
-                    flag = true
-                  })
-                }),
-              }),
-            ],
-          }),
-        },
-      }))
-
-      const startTime = Date.now()
-      await machine.onStop()
-      const endTime = Date.now()
-      const duration = endTime - startTime
-      expect(duration).toBeGreaterThanOrEqual(100)
-      expect(flag).toBe(false)
-    }
-  )
-
-  it.concurrent(`can listen in to a machine via a signal`, async () => {
-    const machine = createMachine(() => ({
-      states: {
-        TestState,
-      },
-      signals: {
-        onTestSignal,
-      },
-    }))
-
-    const TestState = machine.state({
-      life: [],
-    })
-
-    const onTestSignal = machine.signal(effect.onTransition())
-
-    const signals = []
-
-    onTestSignal((stuf) => signals.push(stuf))
-
-    await machine.onStop()
-
-    expect(signals.length).toBe(1)
-
-    signals.forEach(({ previousState, currentState }) => {
-      expect(previousState).toBeUndefined()
-
-      const expectedClassState = {
-        initialized: true,
-        runningLifeCycle: false,
-        done: true,
-        name: `TestState`,
-      }
-
-      expect(currentState).toEqual(expect.objectContaining(expectedClassState))
-    })
-  })
-
-  it.concurrent(
     `errors when a state is defined on a machine that didn't create it`,
     async () => {
       await expect(
@@ -326,55 +515,6 @@ describe(`createMachine`, () => {
           })
         })
       ).rejects.toThrow()
-    }
-  )
-
-  it.concurrent(
-    `can listen in to a machine via the same signal from more than 1 subscriber`,
-    async () => {
-      const machine = createMachine(() => ({
-        states: {
-          TestState,
-        },
-        signals: {
-          onTestSignal,
-        },
-      }))
-
-      const TestState = machine.state({
-        life: [],
-      })
-
-      const onTestSignal = machine.signal(effect.onTransition())
-
-      const signals = []
-      const signals2 = []
-
-      onTestSignal((stuf) => signals.push(stuf))
-      onTestSignal((stuf) => signals2.push(stuf))
-
-      await machine.onStop()
-
-      expect(signals.length).toBe(1)
-      expect(signals2.length).toBe(1)
-
-      //
-      ;[...signals, ...signals2].forEach(({ previousState, currentState }) => {
-        expect(previousState).toBeUndefined()
-
-        const expectedClassState = {
-          initialized: true,
-          runningLifeCycle: false,
-          done: true,
-          name: `TestState`,
-        }
-
-        expect(currentState).toEqual(
-          expect.objectContaining(expectedClassState)
-        )
-      })
-
-      expect(signals[0]).toEqual(signals2[0])
     }
   )
 
@@ -656,41 +796,6 @@ describe(`createMachine`, () => {
     }
   )
 
-  it.concurrent(
-    `onError gracefully stops the machine, while omitting it throws the error`,
-    async () => {
-      let onErrorWasCalled = false
-
-      const machineOnError = createMachine(() => ({
-        onError: () => {
-          onErrorWasCalled = true
-        },
-
-        states: {},
-      }))
-
-      machineOnError.state({
-        life: [],
-      })
-
-      await machineOnError.onStop()
-      expect(onErrorWasCalled).toBe(true)
-
-      const machineNoOnError = createMachine(() => ({
-        states: {},
-      }))
-
-      machineNoOnError.state({
-        life: [],
-      })
-
-      await Promise.all([
-        expect(machineNoOnError.onStart()).rejects.toThrow(),
-        expect(machineNoOnError.onStop()).rejects.toThrow(),
-      ])
-    }
-  )
-
   it.concurrent(`states must begin with a capital letter`, async () => {
     const machine = createMachine(() => ({
       states: {
@@ -704,6 +809,243 @@ describe(`createMachine`, () => {
 
     await expect(machine.onStart()).rejects.toThrow()
   })
+
+  it.concurrent(
+    `errors when thenGoTo returns a state that isn't defined on the machine`,
+    async () => {
+      const machine = createMachine(() => ({
+        initial: StateTwo,
+        states: {
+          StateOne,
+        },
+      }))
+
+      const machine2 = createMachine(() => ({
+        initial: StateTwo,
+        states: {
+          StateTwo,
+        },
+      }))
+
+      const StateOne = machine.state({
+        life: [
+          cycle({
+            name: `wait so that machine2 is initialized. to simulate a machine that's already running when we attempt to transition to the wrong state`,
+            run: effect(() => new Promise((res) => setTimeout(res))),
+          }),
+          cycle({
+            name: `go to state 2`,
+            thenGoTo: () => StateTwo,
+          }),
+        ],
+      })
+
+      const StateTwo = machine2.state({
+        life: [
+          cycle({
+            name: `go to state 1`,
+            thenGoTo: () => StateOne,
+          }),
+        ],
+      })
+
+      await Promise.all([
+        expect(machine.onStop()).rejects.toThrow(),
+        expect(machine2.onStop()).rejects.toThrow(),
+      ])
+    }
+  )
+
+  test.concurrent(
+    `data returned from run: effect() is passed as args into the next state if thenGoTo is defined.`,
+    async () => {
+      const machine = createMachine(() => ({
+        states: {
+          StateOne,
+          StateTwo,
+          Done,
+        },
+      }))
+
+      const value = {
+        foo: `ya`,
+      }
+
+      const StateOne = machine.state({
+        life: [
+          cycle({
+            name: `Go to state 2`,
+            run: effect(() => {
+              return value
+            }),
+            thenGoTo: () => StateTwo,
+          }),
+        ],
+      })
+
+      const assertValIsEqual = (val: typeof value) => {
+        expect(val).toBe(value)
+      }
+
+      let cycleFnCount = 0
+
+      const condition = ({ context }) => {
+        cycleFnCount++
+        assertValIsEqual(context)
+        return context
+      }
+
+      const run = effect(condition)
+
+      const StateTwo = machine.state({
+        life: [
+          cycle({
+            condition,
+            run,
+          }),
+          cycle({
+            run: effect((args) => {
+              condition(args)
+              // returning from run will only be passed on if this cycle transitions to a new state
+              return { foo: `nope` }
+            }),
+          }),
+          cycle({
+            condition,
+            run,
+            thenGoTo: () => Done,
+          }),
+        ],
+      })
+
+      const Done = machine.state({
+        life: [
+          cycle({
+            condition,
+            run,
+          }),
+        ],
+      })
+
+      await machine.onStop()
+
+      expect(cycleFnCount).toBe(7)
+    }
+  )
+})
+
+describe(`define.signal`, () => {
+  it.concurrent(
+    `throws an error if a signal is not defined on the machine definition, even if it's added with machine.signal()`,
+    async () => {
+      await expect(
+        new Promise(async (res, rej) => {
+          const machine = createMachine(() => ({
+            states: {},
+            signals: {},
+            onError: (error) => {
+              expect(error.message).toContain(
+                `Added Signal does not match any defined Signal.`
+              )
+              rej(error)
+            },
+          }))
+
+          machine.signal(effect.onTransition())
+
+          await machine.onStart()
+          res(null)
+        })
+      ).rejects.toThrow()
+    }
+  )
+
+  it.concurrent(`can listen in to a machine via a signal`, async () => {
+    const machine = createMachine(() => ({
+      states: {
+        TestState,
+      },
+      signals: {
+        onTestSignal,
+      },
+    }))
+
+    const TestState = machine.state({
+      life: [],
+    })
+
+    const onTestSignal = machine.signal(effect.onTransition())
+
+    const signals = []
+
+    onTestSignal((stuf) => signals.push(stuf))
+
+    await machine.onStop()
+
+    expect(signals.length).toBe(1)
+
+    signals.forEach(({ previousState, currentState }) => {
+      expect(previousState).toBeUndefined()
+
+      const expectedClassState = {
+        initialized: true,
+        runningLifeCycle: false,
+        done: true,
+        name: `TestState`,
+      }
+
+      expect(currentState).toEqual(expect.objectContaining(expectedClassState))
+    })
+  })
+
+  it.concurrent(
+    `can listen in to a machine via the same signal from more than 1 subscriber`,
+    async () => {
+      const machine = createMachine(() => ({
+        states: {
+          TestState,
+        },
+        signals: {
+          onTestSignal,
+        },
+      }))
+
+      const TestState = machine.state({
+        life: [],
+      })
+
+      const onTestSignal = machine.signal(effect.onTransition())
+
+      const signals = []
+      const signals2 = []
+
+      onTestSignal((stuf) => signals.push(stuf))
+      onTestSignal((stuf) => signals2.push(stuf))
+
+      await machine.onStop()
+
+      expect(signals.length).toBe(1)
+      expect(signals2.length).toBe(1)
+
+      //
+      ;[...signals, ...signals2].forEach(({ previousState, currentState }) => {
+        expect(previousState).toBeUndefined()
+
+        const expectedClassState = {
+          initialized: true,
+          runningLifeCycle: false,
+          done: true,
+          name: `TestState`,
+        }
+
+        expect(currentState).toEqual(
+          expect.objectContaining(expectedClassState)
+        )
+      })
+
+      expect(signals[0]).toEqual(signals2[0])
+    }
+  )
 
   it.concurrent(`signals must begin with a lowercase letter`, async () => {
     const machine = createMachine(() => ({
@@ -891,147 +1233,6 @@ describe(`createMachine`, () => {
     }
   )
 
-  test.concurrent(
-    `the first state in the states: {} object in the machine definition is the initial state`,
-    async () => {
-      const machine = createMachine(() => ({
-        states: {
-          StateOne,
-          StateTwo,
-        },
-
-        signals: {
-          onTransition,
-        },
-      }))
-
-      const StateOne = machine.state({
-        life: [
-          cycle({
-            name: `go to state 2`,
-            thenGoTo: () => StateTwo,
-          }),
-        ],
-      })
-
-      const StateTwo = machine.state({
-        life: [
-          cycle({
-            name: `done`,
-          }),
-        ],
-      })
-
-      const onTransition = machine.signal(effect.onTransition())
-
-      onTransition(({ previousState, currentState }) => {
-        expect(currentState.name).toBe(`StateOne`)
-        expect(previousState).toBeUndefined()
-        onTransition.unsubscribe()
-      })
-
-      await machine.onStop()
-
-      expect(onTransition.did.run()).toBe(true)
-      expect(onTransition.did.unsubscribe()).toBe(true)
-      expect(onTransition.did.invocationCount()).toBe(1)
-    }
-  )
-
-  it.concurrent(
-    `when a machine has the initial property defined, that state is the initial state instead of the first state in the states object`,
-    async () => {
-      const machine = createMachine(() => ({
-        initial: StateTwo,
-        states: {
-          StateOne,
-          StateTwo,
-        },
-
-        signals: {
-          onTransition,
-        },
-      }))
-
-      const StateOne = machine.state({
-        life: [
-          cycle({
-            name: `go to state 2`,
-            thenGoTo: () => StateTwo,
-          }),
-        ],
-      })
-
-      const StateTwo = machine.state({
-        life: [
-          cycle({
-            name: `done`,
-          }),
-        ],
-      })
-
-      const onTransition = machine.signal(effect.onTransition())
-
-      onTransition(({ previousState, currentState }) => {
-        expect(currentState.name).toBe(`StateOne`)
-        expect(previousState).toBeUndefined()
-        onTransition.unsubscribe()
-      })
-
-      await machine.onStop()
-
-      expect(onTransition.did.run()).toBe(true)
-      expect(onTransition.did.unsubscribe()).toBe(true)
-      expect(onTransition.did.invocationCount()).toBe(1)
-    }
-  )
-
-  it.concurrent(
-    `errors when thenGoTo returns a state that isn't defined on the machine`,
-    async () => {
-      const machine = createMachine(() => ({
-        initial: StateTwo,
-        states: {
-          StateOne,
-        },
-      }))
-
-      const machine2 = createMachine(() => ({
-        initial: StateTwo,
-        states: {
-          StateTwo,
-        },
-      }))
-
-      const StateOne = machine.state({
-        life: [
-          cycle({
-            name: `wait so that machine2 is initialized. to simulate a machine that's already running when we attempt to transition to the wrong state`,
-            run: effect(() => new Promise((res) => setTimeout(res))),
-          }),
-          cycle({
-            name: `go to state 2`,
-            thenGoTo: () => StateTwo,
-          }),
-        ],
-      })
-
-      const StateTwo = machine2.state({
-        life: [
-          cycle({
-            name: `go to state 1`,
-            thenGoTo: () => StateOne,
-          }),
-        ],
-      })
-
-      await Promise.all([
-        expect(machine.onStop()).rejects.toThrow(),
-        expect(machine2.onStop()).rejects.toThrow(),
-      ])
-    }
-  )
-
   it.concurrent(
     `handles signal subscribers across state transitions`,
     async () => {
@@ -1084,6 +1285,56 @@ describe(`createMachine`, () => {
       await machine.onStop()
 
       expect(visitedStateNames).toEqual([`StateOne`, `StateTwo`, `StateThree`])
+    }
+  )
+
+  test.concurrent(
+    `signal(effect.waitForState()) returns a promise that resolves the first time a given state is entered`,
+    async () => {
+      const machine = createMachine(() => ({
+        states: {
+          StateOne,
+          StateTwo,
+        },
+
+        signals: {
+          waitForState2,
+        },
+      }))
+
+      const StateOne = machine.state({
+        life: [
+          cycle({
+            name: `Go to state 2`,
+            thenGoTo: () => StateTwo,
+          }),
+        ],
+      })
+
+      let state2Count = 0
+
+      const StateTwo = machine.state({
+        life: [
+          cycle({
+            name: `back to state 2`,
+            condition: () => state2Count < 2,
+            run: effect(() => state2Count++),
+            thenGoTo: () => StateTwo,
+          }),
+        ],
+      })
+
+      const waitForState2 = machine.signal(effect.waitForState(() => StateTwo))
+
+      const state = await waitForState2()
+      expect(state.constructor.toString()).toContain(
+        `class State extends Definition`
+      )
+
+      const stateAgain = await waitForState2()
+      expect(stateAgain.constructor.toString()).toContain(
+        `class State extends Definition`
+      )
     }
   )
 
@@ -1158,206 +1409,6 @@ describe(`createMachine`, () => {
     }
   )
 
-  test.concurrent(
-    `10 million transitions take less than 5 seconds`,
-    async () => {
-      const iterationMax = 10_000_000
-      const startTime = Date.now()
-      let counter = 0
-
-      const machine = createMachine(() => ({
-        states: {
-          StateOne,
-          StateTwo,
-        },
-
-        options: {
-          maxTransitionsPerSecond: iterationMax,
-        },
-      }))
-
-      const StateOne = machine.state({
-        life: [
-          cycle({
-            name: `only cycle`,
-            condition: () => counter <= iterationMax,
-            run: effect(() => {
-              counter++
-            }),
-            thenGoTo: () => StateTwo,
-          }),
-        ],
-      })
-
-      const StateTwo = machine.state({
-        life: [
-          cycle({
-            name: `only cycle`,
-            condition: () => counter <= iterationMax,
-            run: effect(() => {
-              counter++
-            }),
-            thenGoTo: () => StateOne,
-          }),
-        ],
-      })
-
-      await machine.onStop()
-
-      const endTime = Date.now() - startTime
-
-      expect(endTime).toBeLessThan(5000)
-    }
-  )
-
-  test.concurrent(
-    `data returned from run: effect() is passed as args into the next state if thenGoTo is defined.`,
-    async () => {
-      const machine = createMachine(() => ({
-        states: {
-          StateOne,
-          StateTwo,
-          Done,
-        },
-      }))
-
-      const value = {
-        foo: `ya`,
-      }
-
-      const StateOne = machine.state({
-        life: [
-          cycle({
-            name: `Go to state 2`,
-            run: effect(() => {
-              return value
-            }),
-            thenGoTo: () => StateTwo,
-          }),
-        ],
-      })
-
-      const assertValIsEqual = (val: typeof value) => {
-        expect(val).toBe(value)
-      }
-
-      let cycleFnCount = 0
-
-      const condition = ({ context }) => {
-        cycleFnCount++
-        assertValIsEqual(context)
-        return context
-      }
-
-      const run = effect(condition)
-
-      const StateTwo = machine.state({
-        life: [
-          cycle({
-            condition,
-            run,
-          }),
-          cycle({
-            run: effect((args) => {
-              condition(args)
-              // returning from run will only be passed on if this cycle transitions to a new state
-              return { foo: `nope` }
-            }),
-          }),
-          cycle({
-            condition,
-            run,
-            thenGoTo: () => Done,
-          }),
-        ],
-      })
-
-      const Done = machine.state({
-        life: [
-          cycle({
-            condition,
-            run,
-          }),
-        ],
-      })
-
-      await machine.onStop()
-
-      expect(cycleFnCount).toBe(7)
-    }
-  )
-
-  test.concurrent(
-    `effect methods besides effect()/effect.wait() throw errors when passed to cycle.run() or when called outside of cycle.run()`,
-    async () => {
-      const machine = createMachine(() => ({
-        states: {
-          StateOne,
-        },
-      }))
-
-      const StateOne = machine.state({
-        life: [
-          cycle({
-            run: effect.onTransition(({}) => ({ value: null })),
-          }),
-        ],
-      })
-
-      await expect(machine.onStop()).rejects.toThrow()
-    }
-  )
-
-  test.concurrent(
-    `signal(effect.waitForState()) returns a promise that resolves the first time a given state is entered`,
-    async () => {
-      const machine = createMachine(() => ({
-        states: {
-          StateOne,
-          StateTwo,
-        },
-
-        signals: {
-          waitForState2,
-        },
-      }))
-
-      const StateOne = machine.state({
-        life: [
-          cycle({
-            name: `Go to state 2`,
-            thenGoTo: () => StateTwo,
-          }),
-        ],
-      })
-
-      let state2Count = 0
-
-      const StateTwo = machine.state({
-        life: [
-          cycle({
-            name: `back to state 2`,
-            condition: () => state2Count < 2,
-            run: effect(() => state2Count++),
-            thenGoTo: () => StateTwo,
-          }),
-        ],
-      })
-
-      const waitForState2 = machine.signal(effect.waitForState(() => StateTwo))
-
-      const state = await waitForState2()
-      expect(state.constructor.toString()).toContain(
-        `class State extends Definition`
-      )
-
-      const stateAgain = await waitForState2()
-      expect(stateAgain.constructor.toString()).toContain(
-        `class State extends Definition`
-      )
-    }
-  )
-
   test.todo(
     `signal(effect.waitForAnySequence()) returns a promise that resolves the first time a given list of states are entered in any order`
   )
@@ -1376,74 +1427,6 @@ describe(`createMachine`, () => {
 
   test.todo(
     `signal effects can queue state transitions with effect.requestState() which can then optionally be picked up by states when a cycle.onRequest() lifecycle is defined and runs`
-  )
-
-  test.todo(
-    `machines have storage that can be accessed/mutated in states and signals`
-  )
-
-  test.todo(
-    `states have storage that is only accessible (from the state or from signals) while in that state, and persists across transitions to and from a state`
-  )
-
-  test.todo(`cycle conditions and effects can access state and machine storage`)
-
-  test.todo(`machines can be linked together and communicate via signals`)
-
-  test.todo(
-    `states can fork into multiple simultaneous state trees with cycle({ thenGoTo: () => [StateOne, StateTwo, Etc]})`
-  )
-
-  test.todo(
-    `state definitions are static and are only processed when they are defined the first time. for example conditions in thenGoTo will only run the first time (to discourage using unmappable conditionals inside thenGoTo)`
-  )
-
-  test.todo(
-    `state trees can end themselves by calling cycle.end({ condition: () => true })`
-  )
-
-  test.todo(
-    `states in forked state trees share the same storage per-state definition and per-machine`
-  )
-
-  test.todo(
-    `signals which enqueue transition requests can choose to request on the main state tree or inspect and select forked state trees to request`
-  )
-
-  test.todo(
-    `signals which subscribe to transitions can choose to subscribe on the main state tree or inspect and select forked state trees to subscribe to`
-  )
-
-  test.todo(
-    `machines can have plugins which hook into transitions, state definitions, machine definition, and machine stop/start/error`
-  )
-
-  test.todo(
-    `machine plugins can mutate the machine definition during initial start up`
-  )
-
-  test.todo(
-    `machine plugins can mutate the state definitions during initial start up`
-  )
-
-  test.todo(
-    `machine plugins can mutate machine/state storage on machine start/stop`
-  )
-
-  test.todo(
-    `when process.env.NODE_ENV === 'test', machines don't automatically start until started with machine.start()`
-  )
-
-  test.todo(
-    `machine.mergeMockDefinition() allows merging new values into the machine definition`
-  )
-
-  test.todo(
-    `machine.mergeMockDefinition() can only be called before the machine is started`
-  )
-
-  test.todo(
-    `machine.mergeMockDefinition().mergeMockState() extends State definitions`
   )
 })
 
@@ -1482,6 +1465,27 @@ describe(`cycle`, () => {
       condition: expect.any(Function),
     })
   })
+
+  test.concurrent(
+    `effect methods besides effect()/effect.wait() throw errors when passed to cycle.run() or when called outside of cycle.run()`,
+    async () => {
+      const machine = createMachine(() => ({
+        states: {
+          StateOne,
+        },
+      }))
+
+      const StateOne = machine.state({
+        life: [
+          cycle({
+            run: effect.onTransition(({}) => ({ value: null })),
+          }),
+        ],
+      })
+
+      await expect(machine.onStop()).rejects.toThrow()
+    }
+  )
 })
 
 describe(`effect`, () => {
