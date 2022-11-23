@@ -59,10 +59,10 @@ describe(`create.machine`, () => {
         },
       }))
 
-      const TestState = create.state(() => ({
+      const TestState = create.state({
         machine,
         life: [],
-      }))
+      })
 
       expect(TestState.name).toBeUndefined()
       await machine.onStart()
@@ -81,7 +81,7 @@ describe(`create.machine`, () => {
         },
       }))
 
-      const TestState = create.state(() => ({
+      const TestState = create.state({
         machine,
         life: [
           cycle({
@@ -94,7 +94,7 @@ describe(`create.machine`, () => {
             }),
           }),
         ],
-      }))
+      })
 
       const startTime = Date.now()
       await machine.onStop()
@@ -118,10 +118,10 @@ describe(`create.machine`, () => {
         states: {},
       }))
 
-      create.state(() => ({
+      create.state({
         machine: machineOnError,
         life: [],
-      }))
+      })
 
       await expect(machineOnError.onStop()).resolves.toBeUndefined()
       expect(onErrorWasCalled).toBe(true)
@@ -130,10 +130,10 @@ describe(`create.machine`, () => {
         states: {},
       }))
 
-      create.state(() => ({
+      create.state({
         machine: machineNoOnError,
         life: [],
-      }))
+      })
 
       await Promise.all([
         expect(machineNoOnError.onStart()).rejects.toThrow(),
@@ -158,7 +158,7 @@ describe(`create.machine`, () => {
 
       const enteredStates: string[] = []
 
-      const StateOne = create.state(() => ({
+      const StateOne = create.state({
         machine,
         life: [
           cycle({
@@ -167,9 +167,9 @@ describe(`create.machine`, () => {
             thenGoTo: () => StateTwo,
           }),
         ],
-      }))
+      })
 
-      const StateTwo = create.state(() => ({
+      const StateTwo = create.state({
         machine,
         life: [
           cycle({
@@ -177,7 +177,7 @@ describe(`create.machine`, () => {
             name: `done`,
           }),
         ],
-      }))
+      })
 
       // const onTransition = machine.signal(effect.onTransition())
 
@@ -214,7 +214,7 @@ describe(`create.machine`, () => {
 
       const enteredStates: string[] = []
 
-      const StateOne = create.state(() => ({
+      const StateOne = create.state({
         machine,
         life: [
           cycle({
@@ -223,9 +223,9 @@ describe(`create.machine`, () => {
             thenGoTo: () => StateTwo,
           }),
         ],
-      }))
+      })
 
-      const StateTwo = create.state(() => ({
+      const StateTwo = create.state({
         machine,
         life: [
           cycle({
@@ -233,7 +233,7 @@ describe(`create.machine`, () => {
             name: `done`,
           }),
         ],
-      }))
+      })
 
       // const onTransition = create.signal(effect.onTransition())
 
@@ -270,7 +270,7 @@ describe(`create.machine`, () => {
         },
       }))
 
-      const StateOne = create.state(() => ({
+      const StateOne = create.state({
         machine,
         life: [
           cycle({
@@ -282,9 +282,9 @@ describe(`create.machine`, () => {
             thenGoTo: () => StateTwo,
           }),
         ],
-      }))
+      })
 
-      const StateTwo = create.state(() => ({
+      const StateTwo = create.state({
         machine,
         life: [
           cycle({
@@ -296,7 +296,7 @@ describe(`create.machine`, () => {
             thenGoTo: () => StateOne,
           }),
         ],
-      }))
+      })
 
       await machine.onStop()
 
@@ -392,9 +392,9 @@ describe(`create.state`, () => {
           }))
 
           // @ts-ignore
-          const StateOne = create.state(() => ({
+          const StateOne = create.state({
             life: [],
-          }))
+          })
 
           // onStop will resolve before onError is called
           await machine.onStop()
@@ -466,7 +466,7 @@ describe(`create.state`, () => {
         },
       }))
 
-      const StateOne = create.state(() => ({
+      const StateOne = create.state({
         machine,
         life: [
           cycle({
@@ -479,7 +479,7 @@ describe(`create.state`, () => {
             }),
           }),
         ],
-      }))
+      })
 
       await machine.onStop()
       expect(onErrorWasCalled).toBe(true)
@@ -504,7 +504,7 @@ describe(`create.state`, () => {
         },
       }))
 
-      const StateOne = create.state(() => ({
+      const StateOne = create.state({
         machine,
         life: [
           cycle({
@@ -520,7 +520,7 @@ describe(`create.state`, () => {
             },
           }),
         ],
-      }))
+      })
 
       await machine.onStop()
       expect(onErrorWasCalled).toBe(true)
@@ -548,23 +548,23 @@ describe(`create.state`, () => {
             },
           }))
 
-          let Machine1TestState = create.state(() => ({
+          let Machine1TestState = create.state({
             machine: machine1,
             life: [
               cycle({
                 name: `Machine1 test state`,
               }),
             ],
-          }))
+          })
 
-          let Machine2TestState = create.state(() => ({
+          const Machine2TestState = create.state({
             machine: machine2,
             life: [
               cycle({
                 name: `Machine2 test state`,
               }),
             ],
-          }))
+          })
 
           Promise.all([machine1.onStop(), machine2.onStop()]).then(() => {
             res(null)
@@ -585,7 +585,7 @@ describe(`create.state`, () => {
 
     let cycleRan = false
 
-    const TestState = create.state(() => ({
+    const TestState = create.state({
       machine,
       life: [
         cycle({
@@ -600,7 +600,7 @@ describe(`create.state`, () => {
           }),
         }),
       ],
-    }))
+    })
 
     await machine.onStop()
 
@@ -684,7 +684,7 @@ describe(`create.state`, () => {
         }
       }
 
-      let StateOne = create.state(() => ({
+      const StateOne = create.state({
         machine,
         life: [
           cycle({
@@ -693,9 +693,9 @@ describe(`create.state`, () => {
             thenGoTo: () => StateTwo,
           }),
         ],
-      }))
+      })
 
-      let StateTwo = create.state(() => ({
+      const StateTwo = create.state({
         machine,
         life: [
           cycle({
@@ -704,9 +704,9 @@ describe(`create.state`, () => {
             thenGoTo: () => StateThree,
           }),
         ],
-      }))
+      })
 
-      let StateThree = create.state(() => ({
+      const StateThree = create.state({
         machine,
         life: [
           cycle({
@@ -714,7 +714,7 @@ describe(`create.state`, () => {
             name: `finish`,
           }),
         ],
-      }))
+      })
 
       await machine.onStop()
 
@@ -737,7 +737,7 @@ describe(`create.state`, () => {
       let trueConditionFlag = false
       let secondTrueConditionFlag = false
 
-      const StateOne = create.state(() => ({
+      const StateOne = create.state({
         machine,
         life: [
           cycle({
@@ -756,9 +756,9 @@ describe(`create.state`, () => {
             thenGoTo: () => StateTwo,
           }),
         ],
-      }))
+      })
 
-      const StateTwo = create.state(() => ({
+      const StateTwo = create.state({
         machine,
         life: [
           cycle({
@@ -781,9 +781,9 @@ describe(`create.state`, () => {
             thenGoTo: () => StateNever,
           }),
         ],
-      }))
+      })
 
-      const StateNever = create.state(() => ({
+      const StateNever = create.state({
         machine,
         life: [
           cycle({
@@ -794,7 +794,7 @@ describe(`create.state`, () => {
             }),
           }),
         ],
-      }))
+      })
 
       await machine.onStop()
 
@@ -825,7 +825,7 @@ describe(`create.state`, () => {
       let counter = 0
       const maxLoops = 100000
 
-      let StateOne = create.state(() => ({
+      let StateOne = create.state({
         machine,
         life: [
           cycle({
@@ -837,7 +837,7 @@ describe(`create.state`, () => {
             thenGoTo: () => StateOne,
           }),
         ],
-      }))
+      })
 
       await machine.onStop()
       expect(counter).toBe(maxLoops)
@@ -869,7 +869,7 @@ describe(`create.state`, () => {
 
       let transitionCount = 0
 
-      const InfiniteState = create.state(() => ({
+      const InfiniteState = create.state({
         machine: infiniteLoopingMachine,
         life: [
           cycle({
@@ -878,7 +878,7 @@ describe(`create.state`, () => {
             thenGoTo: () => InfiniteState,
           }),
         ],
-      }))
+      })
 
       // const onTransition = infiniteLoopingMachine.signal(effect.onTransition())
       // onTransition(() => transitionCount++)
@@ -910,10 +910,10 @@ describe(`create.state`, () => {
       },
     }))
 
-    let testState = create.state(() => ({
+    let testState = create.state({
       machine,
       life: [],
-    }))
+    })
 
     await expect(machine.onStart()).rejects.toThrow()
   })
@@ -935,7 +935,7 @@ describe(`create.state`, () => {
         },
       }))
 
-      const StateOne = create.state(() => ({
+      const StateOne = create.state({
         machine,
         life: [
           cycle({
@@ -947,7 +947,7 @@ describe(`create.state`, () => {
             thenGoTo: () => StateTwo,
           }),
         ],
-      }))
+      })
 
       const StateTwo = create.state(() => ({
         machine: machine2,
@@ -983,7 +983,7 @@ describe(`create.state`, () => {
         foo: `ya`,
       }
 
-      const StateOne = create.state(() => ({
+      const StateOne = create.state({
         machine,
         life: [
           cycle({
@@ -994,7 +994,7 @@ describe(`create.state`, () => {
             thenGoTo: () => StateTwo,
           }),
         ],
-      }))
+      })
 
       const assertValIsEqual = (val: typeof value) => {
         expect(val).toBe(value)
@@ -1010,7 +1010,7 @@ describe(`create.state`, () => {
 
       const run = effect(condition)
 
-      const StateTwo = create.state(() => ({
+      const StateTwo = create.state({
         machine,
         life: [
           cycle({
@@ -1030,9 +1030,9 @@ describe(`create.state`, () => {
             thenGoTo: () => Done,
           }),
         ],
-      }))
+      })
 
-      const Done = create.state(() => ({
+      const Done = create.state({
         machine,
         life: [
           cycle({
@@ -1040,7 +1040,7 @@ describe(`create.state`, () => {
             run,
           }),
         ],
-      }))
+      })
 
       await machine.onStop()
 
@@ -1553,10 +1553,10 @@ describe(`cycle`, () => {
       },
     }))
 
-    const TestState = create.state(() => ({
+    const TestState = create.state({
       machine,
       life: [],
-    }))
+    })
 
     expect(
       cycle({
@@ -1585,14 +1585,14 @@ describe(`cycle`, () => {
         },
       }))
 
-      const StateOne = create.state(() => ({
+      const StateOne = create.state({
         machine,
         life: [
           cycle({
             run: effect.onTransition(({}) => ({ value: null })),
           }),
         ],
-      }))
+      })
 
       await expect(machine.onStop()).rejects.toThrow(
         `Life cycle run must be an effect function. State: `
