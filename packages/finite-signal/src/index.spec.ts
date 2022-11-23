@@ -2,7 +2,7 @@ import { createMachine, cycle, effect } from "./index"
 import { define } from "./mekk"
 
 describe(`define.machine`, () => {
-  it.concurrent(
+  it.concurrent.only(
     `can create and run a minimal machine without throwing errors`,
     async () => {
       const machine = define.machine(() => ({
@@ -14,7 +14,7 @@ describe(`define.machine`, () => {
     }
   )
 
-  it.concurrent(
+  it.concurrent.only(
     `can create and run a minimal machine and state without throwing errors`,
     async () => {
       const machine = define.machine(() => ({
@@ -36,7 +36,7 @@ describe(`define.machine`, () => {
     }
   )
 
-  it.concurrent(
+  it.concurrent.only(
     `machine.onStart() returns a promise that resolves when the machine has started running`,
     async () => {
       const machine = define.machine(() => ({
@@ -56,7 +56,7 @@ describe(`define.machine`, () => {
     }
   )
 
-  it.concurrent(
+  it.concurrent.only(
     `machine.onStop() returns a promise that resolves when the machine has stopped running`,
     async () => {
       let flag = false
