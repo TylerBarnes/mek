@@ -422,12 +422,12 @@ describe(`create.state`, () => {
     }
   )
 
-  it.concurrent(
-    `createMachine({ onError }) is called for errors thrown inside of state cycle effects`,
+  it.concurrent.only(
+    `create.machine({ onError }) is called for errors thrown inside of state cycle effects`,
     async () => {
       let onErrorWasCalled = false
 
-      const machine = createMachine(() => ({
+      const machine = create.machine(() => ({
         states: {
           StateOne,
         },
@@ -440,7 +440,8 @@ describe(`create.state`, () => {
         },
       }))
 
-      const StateOne = machine.state({
+      const StateOne = create.state(() => ({
+        machine,
         life: [
           cycle({
             name: `no error here, adding this to test that the error message includes the correct lifecycle index`,
@@ -452,7 +453,7 @@ describe(`create.state`, () => {
             }),
           }),
         ],
-      })
+      }))
 
       await machine.onStop()
       expect(onErrorWasCalled).toBe(true)
