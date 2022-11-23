@@ -776,7 +776,7 @@ describe(`create.state`, () => {
     }
   )
 
-  test.concurrent(
+  test.concurrent.only(
     `synchronous state transitions don't block the event loop`,
     async () => {
       let eventLoopBlocked = true
@@ -788,7 +788,7 @@ describe(`create.state`, () => {
         timeoutTime = Date.now() - startTime
       })
 
-      const machine = createMachine(() => ({
+      const machine = create.machine(() => ({
         states: {
           StateOne,
         },
@@ -796,7 +796,8 @@ describe(`create.state`, () => {
 
       let counter = 0
 
-      let StateOne = machine.state({
+      let StateOne = create.state(() => ({
+        machine,
         life: [
           cycle({
             name: `only cycle`,
@@ -807,7 +808,7 @@ describe(`create.state`, () => {
             thenGoTo: () => StateOne,
           }),
         ],
-      })
+      }))
 
       await machine.onStop()
       const endTime = Date.now() - startTime
