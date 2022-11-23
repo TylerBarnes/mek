@@ -823,10 +823,10 @@ describe(`create.state`, () => {
     }
   )
 
-  test.concurrent(
+  test.concurrent.only(
     `a state cannot infinitely transition to itself`,
     async () => {
-      const infiniteLoopingMachine = createMachine(() => ({
+      const infiniteLoopingMachine = create.machine(() => ({
         onError: (error) => {
           expect(error.message).toContain(
             `Exceeded max transitions per second.`
@@ -834,23 +834,26 @@ describe(`create.state`, () => {
         },
 
         states: { InfiniteState },
-        signals: {
-          onTransition,
-        },
+        // signals: {
+        //   onTransition,
+        // },
       }))
 
-      const InfiniteState = infiniteLoopingMachine.state({
+      let transitionCount = 0
+
+      const InfiniteState = create.state(() => ({
+        machine: infiniteLoopingMachine,
         life: [
           cycle({
             name: `infinitely transition back into the same state`,
+            run: effect(() => transitionCount++),
             thenGoTo: () => InfiniteState,
           }),
         ],
-      })
+      }))
 
-      let transitionCount = 0
-      const onTransition = infiniteLoopingMachine.signal(effect.onTransition())
-      onTransition(() => transitionCount++)
+      // const onTransition = infiniteLoopingMachine.signal(effect.onTransition())
+      // onTransition(() => transitionCount++)
 
       const secondsTilStop = 3
       let hadToManuallyStopMachine = false

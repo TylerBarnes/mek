@@ -221,8 +221,8 @@ export class Mech {
   currentState: State
 
   transitionCount = 0
-  lastTransitionCountCheckTime = 0
   transitionCountCheckpoint = 0
+  lastTransitionCountCheckTime = Date.now()
 
   states: State[] = []
   definition: ReturnType<MechDefinition>
