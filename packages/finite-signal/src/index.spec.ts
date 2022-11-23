@@ -181,7 +181,7 @@ describe(`create.machine`, () => {
     }
   )
 
-  it.concurrent(
+  it.concurrent.only(
     `when a machine has the initial property defined, that state is the initial state instead of the first state in the states object`,
     async () => {
       const machine = create.machine(() => ({

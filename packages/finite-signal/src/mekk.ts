@@ -193,6 +193,8 @@ export class State {
 
 type MechDefinition = () => {
   states: { [key: string]: State }
+
+  initialState?: State
   onError?: (error: Error) => Promise<void> | void
 }
 
@@ -348,6 +350,12 @@ export class Mech {
 
   private setInitialStateDefinition() {
     if (this.initialState) {
+      return
+    }
+
+    if (this.definition.initialState instanceof State) {
+      this.initialState = this.definition.initialState
+
       return
     }
 
