@@ -5,6 +5,18 @@ export class State {
   name: string
 
   constructor(definition: StateDefinition) {
+    const checkMachine = definition().machine
+
+    if (checkMachine?.initialized) {
+      checkMachine.fatalError(
+        new Error(
+          "Machine is already running. You cannot add a state after the machine has started."
+        )
+      )
+
+      return
+    }
+
     setImmediate(() => {
       // so that this runs after the machine has initialized
       setImmediate(() => {
@@ -27,6 +39,8 @@ type MechDefinition = () => {
 }
 
 export class Mech {
+  initialized = false
+
   states: State[] = []
   definition: ReturnType<MechDefinition>
 
@@ -130,6 +144,8 @@ export class Mech {
 
       state.addName(stateName)
     }
+
+    this.initialized = true
   }
 
   async start() {

@@ -68,12 +68,12 @@ describe(`createMachine`, () => {
     }
   )
 
-  it.concurrent(
+  it.concurrent.only(
     `throws an error if a state is dynamically defined after the machine starts`,
     async () => {
       await expect(
-        new Promise(async (_res, rej) => {
-          const machine = createMachine(() => ({
+        new Promise(async (res, rej) => {
+          const machine = define.machine(() => ({
             states: {},
             onError: (error) => {
               expect(error.message).toContain(
@@ -85,11 +85,13 @@ describe(`createMachine`, () => {
 
           await machine.onStart()
 
-          machine.state({
+          define.state(() => ({
+            machine,
             life: [],
-          })
+          }))
 
           await machine.onStop()
+          res(null)
         })
       ).rejects.toThrow()
     }
