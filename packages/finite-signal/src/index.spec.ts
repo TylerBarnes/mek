@@ -1,7 +1,7 @@
 import { create, cycle, effect } from "./mekk"
 
 describe(`create.machine`, () => {
-  it.concurrent.only(
+  it.concurrent(
     `can create and run a minimal machine without throwing errors`,
     async () => {
       const machine = create.machine(() => ({
@@ -13,7 +13,7 @@ describe(`create.machine`, () => {
     }
   )
 
-  it.concurrent.only(
+  it.concurrent(
     `can create and run a minimal machine and state without throwing errors`,
     async () => {
       const machine = create.machine(() => ({
@@ -35,7 +35,7 @@ describe(`create.machine`, () => {
     }
   )
 
-  it.concurrent.only(
+  it.concurrent(
     `machine.onStart() returns a promise that resolves when the machine has started running`,
     async () => {
       const machine = create.machine(() => ({
@@ -55,7 +55,7 @@ describe(`create.machine`, () => {
     }
   )
 
-  it.concurrent.only(
+  it.concurrent(
     `machine.onStop() returns a promise that resolves when the machine has stopped running`,
     async () => {
       let flag = false
@@ -90,7 +90,7 @@ describe(`create.machine`, () => {
     }
   )
 
-  it.concurrent.only(
+  it.concurrent(
     `onError gracefully stops the machine, while omitting it throws the error`,
     async () => {
       let onErrorWasCalled = false
@@ -127,7 +127,7 @@ describe(`create.machine`, () => {
     }
   )
 
-  test.concurrent.only(
+  test.concurrent(
     `the first state in the states: {} object in the machine definition is the initial state`,
     async () => {
       const machine = create.machine(() => ({
@@ -181,7 +181,7 @@ describe(`create.machine`, () => {
     }
   )
 
-  it.concurrent.only(
+  it.concurrent(
     `when a machine has the initial property defined, that state is the initial state instead of the first state in the states object`,
     async () => {
       const machine = create.machine(() => ({
@@ -237,7 +237,7 @@ describe(`create.machine`, () => {
     }
   )
 
-  test.concurrent.only(
+  test.concurrent(
     `10 million transitions take less than 5 seconds`,
     async () => {
       const iterationMax = 10_000_000
@@ -361,7 +361,7 @@ describe(`create.machine`, () => {
 })
 
 describe(`create.state`, () => {
-  it.concurrent.only(
+  it.concurrent(
     `throws an error if a state does not define a machine on it's definition, even if the state is added to the machines definition`,
     async () => {
       await expect(
@@ -393,7 +393,7 @@ describe(`create.state`, () => {
     }
   )
 
-  it.concurrent.only(
+  it.concurrent(
     `throws an error if a state is dynamically defined after the machine starts`,
     async () => {
       await expect(
@@ -422,7 +422,7 @@ describe(`create.state`, () => {
     }
   )
 
-  it.concurrent.only(
+  it.concurrent(
     `create.machine({ onError }) is called for errors thrown inside of state cycle effects`,
     async () => {
       let onErrorWasCalled = false
@@ -460,7 +460,7 @@ describe(`create.state`, () => {
     }
   )
 
-  it.concurrent.only(
+  it.concurrent(
     `create.machine({ onError }) is called for errors thrown inside of state cycle conditions`,
     async () => {
       let onErrorWasCalled = false
@@ -501,7 +501,7 @@ describe(`create.state`, () => {
     }
   )
 
-  it.concurrent.only(
+  it.concurrent(
     `errors when a state is defined on a machine that didn't create it`,
     async () => {
       await expect(
@@ -550,7 +550,7 @@ describe(`create.state`, () => {
     }
   )
 
-  it.concurrent.only(`runs cycle effects when a state is entered`, async () => {
+  it.concurrent(`runs cycle effects when a state is entered`, async () => {
     const machine = create.machine(() => ({
       states: {
         TestState,
@@ -581,7 +581,7 @@ describe(`create.state`, () => {
     expect(cycleRan).toBe(true)
   })
 
-  it.concurrent.only(
+  it.concurrent(
     `transitions between multiple states using cycle({ thenGoTo })`,
     async () => {
       const machine = create.machine(() => ({
@@ -696,7 +696,7 @@ describe(`create.state`, () => {
     }
   )
 
-  test.concurrent.only(
+  test.concurrent(
     `state cycle conditions determine if a cycle will run or not`,
     async () => {
       const machine = create.machine(() => ({
@@ -778,7 +778,7 @@ describe(`create.state`, () => {
     }
   )
 
-  test.concurrent.only(
+  test.concurrent(
     `synchronous state transitions don't block the event loop`,
     async () => {
       let eventLoopBlocked = true
@@ -825,7 +825,7 @@ describe(`create.state`, () => {
     }
   )
 
-  test.concurrent.only(
+  test.concurrent(
     `a state cannot infinitely transition to itself`,
     async () => {
       const infiniteLoopingMachine = create.machine(() => ({
@@ -877,7 +877,7 @@ describe(`create.state`, () => {
     }
   )
 
-  it.concurrent.only(`states must begin with a capital letter`, async () => {
+  it.concurrent(`states must begin with a capital letter`, async () => {
     const machine = create.machine(() => ({
       states: {
         testState,
@@ -892,7 +892,7 @@ describe(`create.state`, () => {
     await expect(machine.onStart()).rejects.toThrow()
   })
 
-  it.concurrent.only(
+  it.concurrent(
     `errors when thenGoTo returns a state that isn't defined on the machine`,
     async () => {
       const machine = create.machine(() => ({
@@ -942,7 +942,7 @@ describe(`create.state`, () => {
     }
   )
 
-  test.concurrent.only(
+  test.concurrent(
     `data returned from run: effect() is passed as args into the next state if thenGoTo is defined.`,
     async () => {
       const machine = create.machine(() => ({
@@ -1520,7 +1520,7 @@ describe.skip(`create.signal`, () => {
 })
 
 describe(`cycle`, () => {
-  it.concurrent.only(`returns a valid state cycle definition`, async () => {
+  it.concurrent(`returns a valid state cycle definition`, async () => {
     const machine = create.machine(() => ({
       states: {
         TestState,
@@ -1550,7 +1550,7 @@ describe(`cycle`, () => {
     })
   })
 
-  test.concurrent.only(
+  test.concurrent(
     `effect methods besides effect()/effect.wait() throw errors when passed to cycle.run() or when called outside of cycle.run()`,
     async () => {
       const machine = create.machine(() => ({
@@ -1582,7 +1582,7 @@ describe(`cycle`, () => {
 })
 
 describe(`effect`, () => {
-  it.concurrent.only(
+  it.concurrent(
     `effect.wait waits for the specified number of seconds`,
     async () => {
       const time = Date.now()
@@ -1591,7 +1591,7 @@ describe(`effect`, () => {
     }
   )
 
-  it.concurrent.only(
+  it.concurrent(
     `effect.onTransition returns an onTransition handler definition`,
     () => {
       const definition = effect.onTransition(
