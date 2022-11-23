@@ -314,6 +314,17 @@ export class Mech {
       state.addName(stateName)
     }
 
+    // states add themselves here. lets make sure they exist on this machine
+    for (const state of this.states) {
+      if (!this.definition.states[state.name]) {
+        return this.fatalError(
+          new Error(
+            `State "${state.name}" does not exist in this machines definition. @TODO add docs link`
+          )
+        )
+      }
+    }
+
     this.initialized = true
     this.setInitialStateDefinition()
   }
