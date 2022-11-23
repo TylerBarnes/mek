@@ -20,5 +20,3 @@ export const StateTwo = create.state({
     }),
   ],
 })
-
-setInterval(() => {}, 1000)
