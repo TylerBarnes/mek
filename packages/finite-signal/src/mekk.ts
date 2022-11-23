@@ -236,6 +236,7 @@ export class Mech {
   resolveOnStop: typeof Promise.resolve
   rejectOnStop: typeof Promise.reject
   awaitingStopPromise: boolean = false
+  stopInterval: NodeJS.Timeout
 
   constructor(machineDef: MechDefinitionInput) {
     this.createLifeCyclePromises()
@@ -262,22 +263,46 @@ export class Mech {
   }
 
   private createLifeCyclePromises() {
-    this.awaitingStopPromise = false
-    this.awaitingStartPromise = false
+    if (!this.awaitingStartPromise) {
+      this.awaitingStartPromise = false
 
-    this.onStartPromise = new Promise((res, rej) => {
-      // @ts-ignore
-      this.resolveOnStart = res
-      // @ts-ignore
-      this.rejectOnStart = rej
-    })
+      this.onStartPromise = new Promise((res, rej) => {
+        // @ts-ignore
+        this.resolveOnStart = res
+        // @ts-ignore
+        this.rejectOnStart = (args) => {
+          if (this.stopInterval) {
+            clearInterval(this.stopInterval)
+          }
+          rej(args)
+        }
+      })
+    }
 
-    this.onStopPromise = new Promise((res, rej) => {
-      // @ts-ignore
-      this.resolveOnStop = res
-      // @ts-ignore
-      this.rejectOnStop = rej
-    })
+    if (!this.awaitingStopPromise) {
+      if (this.stopInterval) {
+        clearInterval(this.stopInterval)
+      }
+
+      this.awaitingStopPromise = false
+      // this prevents node process from closing until machine.stop() is called
+      this.stopInterval = setInterval(() => {}, 1_000_000)
+
+      this.onStopPromise = new Promise((res, rej) => {
+        // @ts-ignore
+        this.resolveOnStop = (args) => {
+          clearInterval(this.stopInterval)
+          // @ts-ignore
+          res(args)
+        }
+
+        // @ts-ignore
+        this.rejectOnStop = (args) => {
+          clearInterval(this.stopInterval)
+          rej(args)
+        }
+      })
+    }
   }
 
   async [fatalError](error: Error) {
@@ -420,6 +445,9 @@ export class Mech {
     this.status = `running`
     this.resolveOnStart()
 
+    // recreate lifecycle promises so that we can start again later
+    this.createLifeCyclePromises()
+
     if (this.initialState) {
       this.transition(this.initialState, {})
     } else {
@@ -433,11 +461,6 @@ export class Mech {
     this.resolveOnStart()
 
     this.status = `stopped`
-
-    setImmediate(() => {
-      // recreate lifecycle promises so that we can start again later
-      this.createLifeCyclePromises()
-    })
   }
 
   transition(nextState: State, context: any) {
