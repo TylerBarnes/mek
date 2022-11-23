@@ -1023,7 +1023,7 @@ describe(`create.state`, () => {
   )
 })
 
-describe(`create.signal`, () => {
+describe.skip(`create.signal`, () => {
   it.concurrent(
     `throws an error if a signal is not defined on the machine definition, even if it's added with machine.signal()`,
     async () => {
@@ -1520,22 +1520,17 @@ describe(`create.signal`, () => {
 })
 
 describe(`cycle`, () => {
-  it.todo(`fails if no name is provided`)
-
-  it.todo(`cycle properties must be defined in a consistent order`)
-
-  it.todo(`cycle names must be unique within each state`)
-
-  it.concurrent(`returns a valid state cycle definition`, async () => {
-    const machine = createMachine(() => ({
+  it.concurrent.only(`returns a valid state cycle definition`, async () => {
+    const machine = create.machine(() => ({
       states: {
         TestState,
       },
     }))
 
-    const TestState = machine.state({
+    const TestState = create.state(() => ({
+      machine,
       life: [],
-    })
+    }))
 
     expect(
       cycle({
@@ -1575,6 +1570,12 @@ describe(`cycle`, () => {
       await expect(machine.onStop()).rejects.toThrow()
     }
   )
+
+  it.todo(`fails if no name is provided`)
+
+  it.todo(`cycle properties must be defined in a consistent order`)
+
+  it.todo(`cycle names must be unique within each state`)
 })
 
 describe(`effect`, () => {
