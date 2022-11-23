@@ -55,6 +55,14 @@ export class State {
     this.name = name
   }
 
+  reset() {
+    if (!this.initialized) return
+
+    this.initialized = false
+    this.done = false
+    this.nextState = null
+  }
+
   async initializeState({ context }: FunctionArgs) {
     if (this.initialized) {
       return this.fatalError(
@@ -194,15 +202,27 @@ export class State {
 type MechDefinition = () => {
   states: { [key: string]: State }
 
+  name?: string
   initialState?: State
   onError?: (error: Error) => Promise<void> | void
+
+  options?: {
+    maxTransitionsPerSecond?: number
+  }
 }
 
 export class Mech {
+  name?: string
+
   initialized = false
+  status: `stopped` | `running` = `stopped`
 
   initialState: State
   currentState: State
+
+  transitionCount = 0
+  lastTransitionCountCheckTime = 0
+  transitionCountCheckpoint = 0
 
   states: State[] = []
   definition: ReturnType<MechDefinition>
@@ -343,6 +363,10 @@ export class Mech {
     }
     try {
       this.definition = inputDefinition()
+
+      if (this.definition.name) {
+        this.name = this.definition.name
+      }
     } catch (e) {
       this.fatalError(new Error(`Machine definition threw error:\n${e.stack}`))
     }
@@ -364,6 +388,11 @@ export class Mech {
   }
 
   async start() {
+    if (this.status === `running`) {
+      return
+    }
+
+    this.status = `running`
     this.resolveOnStart()
 
     if (this.initialState) {
@@ -373,11 +402,96 @@ export class Mech {
 
   async stop() {
     this.resolveOnStop()
+    // incase we stop before we start, resolve the start promise so code can continue
+    this.resolveOnStart()
+
+    this.status = `stopped`
+
+    setImmediate(() => {
+      // recreate lifecycle promises so that we can start again later
+      this.createLifeCyclePromises()
+    })
   }
 
   transition(nextState: State, context: any) {
+    if (this.status === `stopped`) {
+      return
+    }
+
+    if (nextState.machine !== this) {
+      const wrongMachineName = nextState.machine?.name
+      const nextStateName = nextState.name
+
+      return this.fatalError(
+        new Error(
+          `State "${
+            this.currentState.name
+          }" attempted to transition to a state that was defined on a different machine${
+            nextStateName
+              ? ` (State "${nextStateName}"${
+                  wrongMachineName ? ` from Machine "${wrongMachineName}"` : ``
+                })`
+              : ``
+          }. State definitions cannot be shared between machines.`
+        )
+      )
+    }
+
+    const previousState = this.currentState
+
     this.currentState = nextState
-    this.currentState.initializeState({ context })
+
+    // reset the state so it can be used again if it was used before
+    this.currentState.reset()
+
+    // this.onTransitionListeners.forEach((listener) =>
+    //   listener({ currentState: this.currentState, previousState })
+    // )
+
+    this.transitionCount++
+
+    if (this.transitionCount % 1000 === 0) {
+      const shouldContinue = this.checkForInfiniteTransitionLoop()
+
+      if (shouldContinue) {
+        setImmediate(() => {
+          this.currentState.initializeState({ context })
+        })
+      }
+    } else {
+      this.currentState.initializeState({ context })
+    }
+  }
+
+  private checkForInfiniteTransitionLoop() {
+    const now = Date.now()
+
+    const lastCheckWasOver1Second =
+      now - this.lastTransitionCountCheckTime > 1000
+
+    const lastCheckWasUnder3Seconds =
+      now - this.lastTransitionCountCheckTime < 3000
+
+    const shouldCheck = lastCheckWasOver1Second && lastCheckWasUnder3Seconds
+
+    const maxTransitionsPerSecond =
+      this.definition?.options?.maxTransitionsPerSecond || 1000000
+
+    const exceededMaxTransitionsPerSecond =
+      this.transitionCount - this.transitionCountCheckpoint >
+      maxTransitionsPerSecond
+
+    if (shouldCheck && exceededMaxTransitionsPerSecond) {
+      return this.fatalError(
+        new Error(
+          `Exceeded max transitions per second. You may have an infinite state transition loop happening. Total transitions: ${this.transitionCount}, transitions in the last second: ${this.transitionCountCheckpoint}`
+        )
+      )
+    } else if (shouldCheck) {
+      this.transitionCountCheckpoint = this.transitionCount
+    }
+
+    return true
   }
 
   public onStart(callback?: () => Promise<void> | void) {

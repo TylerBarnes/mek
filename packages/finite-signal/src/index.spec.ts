@@ -237,14 +237,14 @@ describe(`create.machine`, () => {
     }
   )
 
-  test.concurrent(
+  test.concurrent.only(
     `10 million transitions take less than 5 seconds`,
     async () => {
       const iterationMax = 10_000_000
       const startTime = Date.now()
       let counter = 0
 
-      const machine = createMachine(() => ({
+      const machine = create.machine(() => ({
         states: {
           StateOne,
           StateTwo,
@@ -255,7 +255,8 @@ describe(`create.machine`, () => {
         },
       }))
 
-      const StateOne = machine.state({
+      const StateOne = create.state(() => ({
+        machine,
         life: [
           cycle({
             name: `only cycle`,
@@ -266,9 +267,10 @@ describe(`create.machine`, () => {
             thenGoTo: () => StateTwo,
           }),
         ],
-      })
+      }))
 
-      const StateTwo = machine.state({
+      const StateTwo = create.state(() => ({
+        machine,
         life: [
           cycle({
             name: `only cycle`,
@@ -279,7 +281,7 @@ describe(`create.machine`, () => {
             thenGoTo: () => StateOne,
           }),
         ],
-      })
+      }))
 
       await machine.onStop()
 
