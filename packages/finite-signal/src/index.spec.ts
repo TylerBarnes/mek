@@ -797,13 +797,14 @@ describe(`create.state`, () => {
       }))
 
       let counter = 0
+      const maxLoops = 100000
 
       let StateOne = create.state(() => ({
         machine,
         life: [
           cycle({
             name: `only cycle`,
-            condition: () => counter <= 1000,
+            condition: () => counter < maxLoops,
             run: effect(() => {
               counter++
             }),
@@ -813,6 +814,7 @@ describe(`create.state`, () => {
       }))
 
       await machine.onStop()
+      expect(counter).toBe(maxLoops)
       const endTime = Date.now() - startTime
 
       clearTimeout(timeout)
@@ -876,15 +878,16 @@ describe(`create.state`, () => {
   )
 
   it.concurrent(`states must begin with a capital letter`, async () => {
-    const machine = createMachine(() => ({
+    const machine = create.machine(() => ({
       states: {
         testState,
       },
     }))
 
-    let testState = machine.state({
+    let testState = create.state(() => ({
+      machine,
       life: [],
-    })
+    }))
 
     await expect(machine.onStart()).rejects.toThrow()
   })

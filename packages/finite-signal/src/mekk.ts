@@ -249,13 +249,10 @@ export class Mech {
         // wait to the third so that this runs after all states have initialized themselves,
         // which they only do after this machine adds its definition
         setImmediate(() => {
-          this.initialize()
-          this.start()
+          const initialized = this.initialize()
 
-          if (!this.currentState) {
-            setImmediate(() => {
-              this.stop()
-            })
+          if (initialized) {
+            this.start()
           }
         })
       })
@@ -272,14 +269,14 @@ export class Mech {
       // @ts-ignore
       this.resolveOnStart = res
       // @ts-ignore
-      this.rejectOnStop = rej
+      this.rejectOnStart = rej
     })
 
     this.onStopPromise = new Promise((res, rej) => {
       // @ts-ignore
       this.resolveOnStop = res
       // @ts-ignore
-      this.rejectOnStart = rej
+      this.rejectOnStop = rej
     })
   }
 
@@ -305,6 +302,7 @@ export class Mech {
     }
 
     if (awaitingOn) {
+      // we need to return early because we don't want the machine to stop if the user is awaiting the start or stop promise which should throw the error instead.
       return false
     }
 
@@ -333,6 +331,17 @@ export class Mech {
         )
       }
 
+      const nameIsCapitalized =
+        stateName.charAt(0) === stateName.charAt(0).toUpperCase()
+
+      if (!nameIsCapitalized) {
+        this.fatalError(
+          new Error(`State names must be capitalized. State: ${stateName}`)
+        )
+
+        return false
+      }
+
       state.addName(stateName)
     }
 
@@ -347,8 +356,10 @@ export class Mech {
       }
     }
 
-    this.initialized = true
     this.setInitialStateDefinition()
+    this.initialized = true
+
+    return true
   }
 
   private initializeMachineDefinition(inputDefinition: MechDefinition) {
@@ -397,6 +408,8 @@ export class Mech {
 
     if (this.initialState) {
       this.transition(this.initialState, {})
+    } else {
+      this.stop()
     }
   }
 
