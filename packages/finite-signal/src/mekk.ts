@@ -1,3 +1,11 @@
+const addState = Symbol("addState")
+const addName = Symbol("addName")
+const reset = Symbol("reset")
+const initializeState = Symbol("initializeState")
+const runLifeCycles = Symbol("runLifeCycles")
+const goToNextState = Symbol("goToNextState")
+const fatalError = Symbol("fatalError")
+
 type CycleFunction = (args: FunctionArgs) => Promise<any>
 type EffectHandlerDefinition = {
   type: `EffectHandler`
@@ -34,18 +42,18 @@ export class State {
       // so that this runs after the machine has initialized
       setImmediate(() => {
         this.machine = this.definition.machine
-        this?.machine?.addState(this)
+        this?.machine?.[addState]?.(this)
       })
     })
 
     return this
   }
 
-  addName(name: string) {
+  [addName](name: string) {
     this.name = name
   }
 
-  reset() {
+  [reset]() {
     if (!this.initialized) return
 
     this.initialized = false
@@ -53,7 +61,7 @@ export class State {
     this.nextState = null
   }
 
-  async initializeState({ context }: FunctionArgs) {
+  async [initializeState]({ context }: FunctionArgs) {
     if (this.initialized) {
       return this.fatalError(
         new Error(
@@ -66,10 +74,10 @@ export class State {
 
     this.context = context || {}
 
-    await this.runLifeCycles()
+    await this[runLifeCycles]()
   }
 
-  private async runLifeCycles() {
+  private async [runLifeCycles]() {
     if (this.done) {
       throw new Error(
         `State ${this.name} has already run. Cannot run life cycles again.`
@@ -104,7 +112,7 @@ export class State {
         try {
           conditionMet = cycle.condition({ context })
         } catch (e) {
-          return this.fatalError(
+          return this[fatalError](
             new Error(
               `Cycle condition in state ${this.name}.life[${cycleIndex}].cycle.condition threw error:\n${e.stack}`
             )
@@ -123,7 +131,7 @@ export class State {
         (typeof cycle.run?.effectHandler !== `function` ||
           cycle.run?.type !== `EffectHandler`)
       ) {
-        return this.fatalError(
+        return this[fatalError](
           new Error(
             `Life cycle run must be an effect function. State: ${this.name}. @TODO add docs link`
           )
@@ -134,7 +142,7 @@ export class State {
         try {
           runReturn = (await cycle.run.effectHandler({ context })) || {}
         } catch (e) {
-          return this.fatalError(
+          return this[fatalError](
             new Error(
               `Cycle "run" function in state ${this.name}.life[${cycleIndex}].cycle.run threw error:\n${e.stack}`
             )
@@ -154,7 +162,7 @@ export class State {
         try {
           this.nextState = cycle.thenGoTo()
         } catch (e) {
-          return this.fatalError(
+          return this[fatalError](
             new Error(
               `Cycle "thenGoTo" function in state ${this.name}.life[${cycleIndex}].cycle.thenGoTo threw error:\n${e.stack}`
             )
@@ -165,10 +173,10 @@ export class State {
     }
 
     this.runningLifeCycle = false
-    this.goToNextState(runReturn)
+    this[goToNextState](runReturn)
   }
 
-  goToNextState(context: any = {}) {
+  [goToNextState](context: any = {}) {
     const machine = this.machine
 
     this.done = true
@@ -180,12 +188,12 @@ export class State {
     }
   }
 
-  fatalError(error: Error) {
+  [fatalError](error: Error) {
     if (!this.machine) {
       throw error
     }
 
-    return this.machine.fatalError(error)
+    return this.machine[fatalError](error)
   }
 }
 
@@ -272,7 +280,7 @@ export class Mech {
     })
   }
 
-  async fatalError(error: Error) {
+  async [fatalError](error: Error) {
     if (typeof this.definition?.onError === `function`) {
       await this.stop()
       await this.definition.onError(error)
@@ -303,9 +311,9 @@ export class Mech {
     throw error
   }
 
-  addState(state: State) {
+  [addState](state: State) {
     if (this.initialized) {
-      return this.fatalError(
+      return this[fatalError](
         new Error(
           "Machine is already running. You cannot add a state after a machine has started."
         )
@@ -318,13 +326,13 @@ export class Mech {
   initialize() {
     for (const [stateName, state] of Object.entries(this.definition.states)) {
       if (typeof state?.machine === `undefined`) {
-        return this.fatalError(
+        return this[fatalError](
           new Error(
             `State "${stateName}" does not have a machine defined in its state definition. @TODO add docs link`
           )
         )
       } else if (state.machine !== this) {
-        return this.fatalError(
+        return this[fatalError](
           new Error(
             `State "${stateName}" was defined on a different machine. All states must be added to this machine's definition, and this machine must be added to their definition. @TODO add docs link.`
           )
@@ -335,20 +343,20 @@ export class Mech {
         stateName.charAt(0) === stateName.charAt(0).toUpperCase()
 
       if (!nameIsCapitalized) {
-        this.fatalError(
+        this[fatalError](
           new Error(`State names must be capitalized. State: ${stateName}`)
         )
 
         return false
       }
 
-      state.addName(stateName)
+      state[addName](stateName)
     }
 
     // states add themselves here. lets make sure they exist on this machine
     for (const state of this.states) {
       if (!this.definition.states[state.name]) {
-        return this.fatalError(
+        return this[fatalError](
           new Error(
             `State "${state.name}" does not exist in this machines definition. @TODO add docs link`
           )
@@ -367,7 +375,7 @@ export class Mech {
       inputDefinition instanceof Object && !Array.isArray(inputDefinition)
 
     if (typeof inputDefinition !== `function` && !isObjectDef) {
-      this.fatalError(
+      this[fatalError](
         new Error(
           `Machine definition must be a function or and object. @TODO add link to docs`
         )
@@ -385,7 +393,7 @@ export class Mech {
         this.name = this.definition.name
       }
     } catch (e) {
-      this.fatalError(new Error(`Machine definition threw error:\n${e.stack}`))
+      this[fatalError](new Error(`Machine definition threw error:\n${e.stack}`))
     }
   }
 
@@ -441,7 +449,7 @@ export class Mech {
       const wrongMachineName = nextState.machine?.name
       const nextStateName = nextState.name
 
-      return this.fatalError(
+      return this[fatalError](
         new Error(
           `State "${
             this.currentState.name
@@ -461,7 +469,7 @@ export class Mech {
     this.currentState = nextState
 
     // reset the state so it can be used again if it was used before
-    this.currentState.reset()
+    this.currentState[reset]()
 
     // this.onTransitionListeners.forEach((listener) =>
     //   listener({ currentState: this.currentState, previousState })
@@ -474,11 +482,11 @@ export class Mech {
 
       if (shouldContinue) {
         setImmediate(() => {
-          this.currentState.initializeState({ context })
+          this.currentState[initializeState]({ context })
         })
       }
     } else {
-      this.currentState.initializeState({ context })
+      this.currentState[initializeState]({ context })
     }
   }
 
@@ -501,7 +509,7 @@ export class Mech {
       maxTransitionsPerSecond
 
     if (shouldCheck && exceededMaxTransitionsPerSecond) {
-      return this.fatalError(
+      return this[fatalError](
         new Error(
           `Exceeded max transitions per second. You may have an infinite state transition loop happening. Total transitions: ${this.transitionCount}, transitions in the last second: ${this.transitionCountCheckpoint}`
         )
