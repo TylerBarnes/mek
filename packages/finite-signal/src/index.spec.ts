@@ -942,10 +942,10 @@ describe(`create.state`, () => {
     }
   )
 
-  test.concurrent(
+  test.concurrent.only(
     `data returned from run: effect() is passed as args into the next state if thenGoTo is defined.`,
     async () => {
-      const machine = createMachine(() => ({
+      const machine = create.machine(() => ({
         states: {
           StateOne,
           StateTwo,
@@ -957,7 +957,8 @@ describe(`create.state`, () => {
         foo: `ya`,
       }
 
-      const StateOne = machine.state({
+      const StateOne = create.state(() => ({
+        machine,
         life: [
           cycle({
             name: `Go to state 2`,
@@ -967,7 +968,7 @@ describe(`create.state`, () => {
             thenGoTo: () => StateTwo,
           }),
         ],
-      })
+      }))
 
       const assertValIsEqual = (val: typeof value) => {
         expect(val).toBe(value)
@@ -983,7 +984,8 @@ describe(`create.state`, () => {
 
       const run = effect(condition)
 
-      const StateTwo = machine.state({
+      const StateTwo = create.state(() => ({
+        machine,
         life: [
           cycle({
             condition,
@@ -1002,16 +1004,17 @@ describe(`create.state`, () => {
             thenGoTo: () => Done,
           }),
         ],
-      })
+      }))
 
-      const Done = machine.state({
+      const Done = create.state(() => ({
+        machine,
         life: [
           cycle({
             condition,
             run,
           }),
         ],
-      })
+      }))
 
       await machine.onStop()
 
