@@ -696,10 +696,10 @@ describe(`create.state`, () => {
     }
   )
 
-  test.concurrent(
+  test.concurrent.only(
     `state cycle conditions determine if a cycle will run or not`,
     async () => {
-      const machine = createMachine(() => ({
+      const machine = create.machine(() => ({
         states: {
           StateOne,
           StateTwo,
@@ -707,11 +707,12 @@ describe(`create.state`, () => {
         },
       }))
 
-      let falseConditionFlag = false
+      let falseConditionFlag = true
       let trueConditionFlag = false
       let secondTrueConditionFlag = false
 
-      const StateOne = machine.state({
+      const StateOne = create.state(() => ({
+        machine,
         life: [
           cycle({
             name: `never`,
@@ -727,9 +728,10 @@ describe(`create.state`, () => {
             thenGoTo: () => StateTwo,
           }),
         ],
-      })
+      }))
 
-      const StateTwo = machine.state({
+      const StateTwo = create.state(() => ({
+        machine,
         life: [
           cycle({
             name: `first condition`,
@@ -751,9 +753,10 @@ describe(`create.state`, () => {
             thenGoTo: () => StateNever,
           }),
         ],
-      })
+      }))
 
-      const StateNever = machine.state({
+      const StateNever = create.state(() => ({
+        machine,
         life: [
           cycle({
             name: `should never get here because the other states wont transition here`,
@@ -763,7 +766,7 @@ describe(`create.state`, () => {
             }),
           }),
         ],
-      })
+      }))
 
       await machine.onStop()
 
