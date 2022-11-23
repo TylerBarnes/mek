@@ -9,13 +9,14 @@ type LifeCycle = {
   run?: EffectHandlerDefinition
 }
 type LifeCycleList = Array<LifeCycle>
-type StateDefinition = () => { machine: Mech; life?: LifeCycleList }
+type StateDefinition = { machine: Mech; life?: LifeCycleList }
+type StateDefinitionInput = (() => StateDefinition) | StateDefinition
 
 type FunctionArgs = { context: any }
 
 export class State {
   machine: Mech
-  definition: ReturnType<StateDefinition>
+  definition: StateDefinition
   name: string
 
   nextState: State
@@ -25,25 +26,14 @@ export class State {
 
   context: any = {}
 
-  constructor(definition: StateDefinition) {
-    this.definition = definition()
-
-    const checkMachine = this.definition.machine
-
-    if (checkMachine?.initialized) {
-      checkMachine.fatalError(
-        new Error(
-          "Machine is already running. You cannot add a state after the machine has started."
-        )
-      )
-
-      return
-    }
-
+  constructor(definition: StateDefinitionInput) {
     setImmediate(() => {
+      this.definition =
+        typeof definition === `function` ? definition() : definition
+
       // so that this runs after the machine has initialized
       setImmediate(() => {
-        this.machine = definition().machine
+        this.machine = this.definition.machine
         this?.machine?.addState(this)
       })
     })
@@ -199,7 +189,7 @@ export class State {
   }
 }
 
-type MechDefinition = () => {
+type MechDefinition = {
   states: { [key: string]: State }
 
   name?: string
@@ -210,6 +200,8 @@ type MechDefinition = () => {
     maxTransitionsPerSecond?: number
   }
 }
+
+type MechDefinitionInput = (() => MechDefinition) | MechDefinition
 
 export class Mech {
   name?: string
@@ -225,7 +217,7 @@ export class Mech {
   lastTransitionCountCheckTime = Date.now()
 
   states: State[] = []
-  definition: ReturnType<MechDefinition>
+  definition: MechDefinition
 
   onStartPromise: Promise<undefined>
   resolveOnStart: typeof Promise.resolve
@@ -237,7 +229,7 @@ export class Mech {
   rejectOnStop: typeof Promise.reject
   awaitingStopPromise: boolean = false
 
-  constructor(machineDef: MechDefinition) {
+  constructor(machineDef: MechDefinitionInput) {
     this.createLifeCyclePromises()
 
     // wait so that initial State classes are defined
@@ -312,6 +304,14 @@ export class Mech {
   }
 
   addState(state: State) {
+    if (this.initialized) {
+      return this.fatalError(
+        new Error(
+          "Machine is already running. You cannot add a state after a machine has started."
+        )
+      )
+    }
+
     this.states.push(state)
   }
 
@@ -362,18 +362,24 @@ export class Mech {
     return true
   }
 
-  private initializeMachineDefinition(inputDefinition: MechDefinition) {
-    if (typeof inputDefinition !== `function`) {
+  private initializeMachineDefinition(inputDefinition: MechDefinitionInput) {
+    const isObjectDef =
+      inputDefinition instanceof Object && !Array.isArray(inputDefinition)
+
+    if (typeof inputDefinition !== `function` && !isObjectDef) {
       this.fatalError(
         new Error(
-          `Machine definition must be a function. @TODO add link to docs`
+          `Machine definition must be a function or and object. @TODO add link to docs`
         )
       )
 
       return
     }
     try {
-      this.definition = inputDefinition()
+      this.definition =
+        typeof inputDefinition === `function`
+          ? inputDefinition()
+          : inputDefinition
 
       if (this.definition.name) {
         this.name = this.definition.name
@@ -518,11 +524,11 @@ export class Mech {
   }
 }
 
-const machine = (machineDef: MechDefinition) => {
+const machine = (machineDef: MechDefinitionInput) => {
   return new Mech(machineDef)
 }
 
-const state = (def: StateDefinition) => new State(def)
+const state = (def: StateDefinitionInput) => new State(def)
 
 export const cycle = Object.assign((definition) => definition, {
   //   onRequest: definition => definition,
@@ -553,15 +559,16 @@ export const effect = Object.assign(
   }),
   {
     // lazy: (fn) => fn(),
-    wait:
-      (time = 1, callback?: (...stuff: any) => void | Promise<void>) =>
-      () =>
+    wait: (time = 1, callback?: (...stuff: any) => void | Promise<void>) => ({
+      type: `EffectHandler`,
+      effectHandler: () =>
         new Promise((res) =>
           setTimeout(async () => {
             await callback?.()
             res(null)
           }, time * 1000)
         ),
+    }),
     // respond: (signal, fn) => fn(),
     // request: (state, fn) => fn(),
     waitForState: (

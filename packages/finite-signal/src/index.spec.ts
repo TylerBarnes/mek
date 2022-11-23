@@ -14,11 +14,12 @@ describe(`create.machine`, () => {
   )
 
   it.concurrent(
-    `can create and run a minimal machine and state without throwing errors`,
+    `can create and run a minimal machine and state with function/definition syntax without throwing errors`,
     async () => {
       const machine = create.machine(() => ({
         states: {
           TestState,
+          TestState2,
         },
       }))
 
@@ -26,6 +27,20 @@ describe(`create.machine`, () => {
         machine,
         life: [],
       }))
+
+      const TestState2 = create.state({
+        machine,
+        life: [],
+      })
+
+      const TestState3 = create.state(() => ({
+        machine: machine2,
+        life: [],
+      }))
+
+      const machine2 = create.machine({
+        states: { TestState3 },
+      })
 
       await machine.onStart(() => {
         expect(TestState.name).toBe(`TestState`)
@@ -399,14 +414,25 @@ describe(`create.state`, () => {
       await expect(
         new Promise(async (res, rej) => {
           const machine = create.machine(() => ({
-            states: {},
+            states: { StateOne },
             onError: (error) => {
               expect(error.message).toContain(
-                `Machine is already running. You cannot add a state after the machine has started.`
+                `Machine is already running. You cannot add a state after a machine has started.`
               )
               rej(error)
             },
           }))
+
+          const StateOne = create.state({
+            machine,
+            life: [
+              cycle({
+                name: `only cycle`,
+                // to simulate an actual machine running where time passes
+                run: effect.wait(0.1),
+              }),
+            ],
+          })
 
           await machine.onStart()
 
@@ -1586,7 +1612,7 @@ describe(`effect`, () => {
     `effect.wait waits for the specified number of seconds`,
     async () => {
       const time = Date.now()
-      await effect.wait(1)()
+      await effect.wait(1).effectHandler()
       expect(Date.now() - time).toBeGreaterThanOrEqual(1000 - 1)
     }
   )
