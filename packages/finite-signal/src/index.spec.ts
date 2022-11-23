@@ -373,6 +373,10 @@ describe(`create.machine`, () => {
   test.todo(
     `machine.mergeMockDefinition().mergeMockState() extends State definitions`
   )
+
+  test.todo(
+    `machine/state/signal do not expose methods that aren't public API's`
+  )
 })
 
 describe(`create.state`, () => {
@@ -1668,5 +1672,19 @@ describe(`effect`, () => {
         }
       })
     }
+  )
+
+  it.todo(
+    `effect.lazy() runs the effect handler but does not wait for it to resolve if it returns a promise`
+  )
+
+  it.todo(
+    `effect.wait() with no arguments will keep the machine in that state until some external event (like a signal) causes it to transition to another state or the machine is stopped`
+  )
+
+  it.todo(`effect.stop(machine) stops the machine`)
+
+  it.todo(
+    `effects can be chained together by calling methods on the effect object. ex: effect.wait(1).effect(fn).wait(1).lazy(fn2).stop(machine)`
   )
 })
