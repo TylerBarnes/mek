@@ -501,44 +501,52 @@ describe(`create.state`, () => {
     }
   )
 
-  it.concurrent(
+  it.concurrent.only(
     `errors when a state is defined on a machine that didn't create it`,
     async () => {
       await expect(
-        new Promise((_, rej) => {
+        new Promise((res, rej) => {
           const onError = (e: Error) => rej(e)
 
-          const machine1 = createMachine(() => ({
+          const machine1 = create.machine(() => ({
             onError,
             states: {
               Machine2TestState,
             },
           }))
 
-          const machine2 = createMachine(() => ({
+          const machine2 = create.machine(() => ({
             onError,
             states: {
               Machine1TestState,
             },
           }))
 
-          let Machine1TestState = machine1.state({
+          let Machine1TestState = create.state(() => ({
+            machine: machine1,
             life: [
               cycle({
                 name: `Machine1 test state`,
               }),
             ],
-          })
+          }))
 
-          let Machine2TestState = machine2.state({
+          let Machine2TestState = create.state(() => ({
+            machine: machine2,
             life: [
               cycle({
                 name: `Machine2 test state`,
               }),
             ],
+          }))
+
+          Promise.all([machine1.onStop(), machine2.onStop()]).then(() => {
+            res(null)
           })
         })
-      ).rejects.toThrow()
+      ).rejects.toThrow(
+        `was defined on a different machine. All states must be added to this machine's definition, and this machine must be added to their definition.`
+      )
     }
   )
 
