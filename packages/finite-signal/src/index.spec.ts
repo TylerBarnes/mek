@@ -581,77 +581,114 @@ describe(`create.state`, () => {
     expect(cycleRan).toBe(true)
   })
 
-  it.concurrent(
+  it.concurrent.only(
     `transitions between multiple states using cycle({ thenGoTo })`,
     async () => {
-      const machine = createMachine(() => ({
+      const machine = create.machine(() => ({
         states: {
           StateOne,
           StateTwo,
           StateThree,
         },
 
-        signals: {
-          onTransition,
-        },
+        // signals: {
+        //   onTransition,
+        // },
       }))
 
-      let onTransition = machine.signal(effect.onTransition())
+      // let onTransition = machine.signal(effect.onTransition())
 
       let transitionCounter = 0
 
-      onTransition(({ previousState, currentState }) => {
+      // onTransition(({ previousState, currentState }) => {
+      //   transitionCounter++
+
+      //   switch (transitionCounter) {
+      //     case 1:
+      //       expect(previousState).toBeUndefined()
+      //       expect(currentState.name).toBe(`StateOne`)
+      //       break
+      //     case 2:
+      //       expect(previousState.name).toBe(`StateOne`)
+      //       expect(currentState.name).toBe(`StateTwo`)
+      //       break
+      //     case 3:
+      //       expect(previousState.name).toBe(`StateTwo`)
+      //       expect(currentState.name).toBe(`StateThree`)
+      //       break
+      //   }
+
+      //   if (!previousState) {
+      //     expect(currentState.name).toBe(`StateOne`)
+      //   } else if (previousState.name === `StateOne`) {
+      //     expect(currentState.name).toBe(`StateTwo`)
+      //   } else if (previousState.name === `StateTwo`) {
+      //     expect(currentState.name).toBe(`StateThree`)
+      //   }
+      // })
+
+      let enteredStates = []
+
+      const onTransition = (stateName: string) => {
+        const previousStateName = enteredStates[enteredStates.length - 1]
+        enteredStates.push(stateName)
         transitionCounter++
 
         switch (transitionCounter) {
           case 1:
-            expect(previousState).toBeUndefined()
-            expect(currentState.name).toBe(`StateOne`)
+            expect(previousStateName).toBeUndefined()
+            expect(stateName).toBe(`StateOne`)
             break
           case 2:
-            expect(previousState.name).toBe(`StateOne`)
-            expect(currentState.name).toBe(`StateTwo`)
+            expect(previousStateName).toBe(`StateOne`)
+            expect(stateName).toBe(`StateTwo`)
             break
           case 3:
-            expect(previousState.name).toBe(`StateTwo`)
-            expect(currentState.name).toBe(`StateThree`)
+            expect(previousStateName).toBe(`StateTwo`)
+            expect(stateName).toBe(`StateThree`)
             break
         }
 
-        if (!previousState) {
-          expect(currentState.name).toBe(`StateOne`)
-        } else if (previousState.name === `StateOne`) {
-          expect(currentState.name).toBe(`StateTwo`)
-        } else if (previousState.name === `StateTwo`) {
-          expect(currentState.name).toBe(`StateThree`)
+        if (!previousStateName) {
+          expect(stateName).toBe(`StateOne`)
+        } else if (previousStateName === `StateOne`) {
+          expect(stateName).toBe(`StateTwo`)
+        } else if (previousStateName === `StateTwo`) {
+          expect(stateName).toBe(`StateThree`)
         }
-      })
+      }
 
-      let StateOne = machine.state({
+      let StateOne = create.state(() => ({
+        machine,
         life: [
           cycle({
             name: `go to state 2`,
+            run: effect(() => onTransition(`StateOne`)),
             thenGoTo: () => StateTwo,
           }),
         ],
-      })
+      }))
 
-      let StateTwo = machine.state({
+      let StateTwo = create.state(() => ({
+        machine,
         life: [
           cycle({
             name: `go to state 3`,
+            run: effect(() => onTransition(`StateTwo`)),
             thenGoTo: () => StateThree,
           }),
         ],
-      })
+      }))
 
-      let StateThree = machine.state({
+      let StateThree = create.state(() => ({
+        machine,
         life: [
           cycle({
+            run: effect(() => onTransition(`StateThree`)),
             name: `finish`,
           }),
         ],
-      })
+      }))
 
       await machine.onStop()
 
