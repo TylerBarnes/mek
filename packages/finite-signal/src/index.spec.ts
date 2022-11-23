@@ -717,12 +717,14 @@ describe(`create.state`, () => {
           cycle({
             name: `never`,
             condition: () => false,
+            run: effect(() => (falseConditionFlag = true)),
             thenGoTo: () => StateNever,
           }),
           cycle({
             name: `go to state 2`,
             condition: () => true,
             run: effect(() => {
+              falseConditionFlag = false
               trueConditionFlag = false
             }),
             thenGoTo: () => StateTwo,
