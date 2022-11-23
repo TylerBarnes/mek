@@ -2,7 +2,7 @@ import { createMachine, cycle, effect } from "./index"
 import { define } from "./mekk"
 
 describe(`define.machine`, () => {
-  it.concurrent.only(
+  it.concurrent(
     `can create and run a minimal machine without throwing errors`,
     async () => {
       const machine = define.machine(() => ({
@@ -14,7 +14,7 @@ describe(`define.machine`, () => {
     }
   )
 
-  it.concurrent.only(
+  it.concurrent(
     `can create and run a minimal machine and state without throwing errors`,
     async () => {
       const machine = define.machine(() => ({
@@ -36,7 +36,7 @@ describe(`define.machine`, () => {
     }
   )
 
-  it.concurrent.only(
+  it.concurrent(
     `machine.onStart() returns a promise that resolves when the machine has started running`,
     async () => {
       const machine = define.machine(() => ({
@@ -56,7 +56,7 @@ describe(`define.machine`, () => {
     }
   )
 
-  it.concurrent.only(
+  it.concurrent(
     `machine.onStop() returns a promise that resolves when the machine has stopped running`,
     async () => {
       let flag = false
@@ -91,12 +91,12 @@ describe(`define.machine`, () => {
     }
   )
 
-  it.concurrent(
+  it.concurrent.only(
     `onError gracefully stops the machine, while omitting it throws the error`,
     async () => {
       let onErrorWasCalled = false
 
-      const machineOnError = createMachine(() => ({
+      const machineOnError = define.machine(() => ({
         onError: () => {
           onErrorWasCalled = true
         },
@@ -104,20 +104,22 @@ describe(`define.machine`, () => {
         states: {},
       }))
 
-      machineOnError.state({
+      define.state(() => ({
+        machine: machineOnError,
         life: [],
-      })
+      }))
 
-      await machineOnError.onStop()
+      await expect(machineOnError.onStop()).resolves.toBeUndefined()
       expect(onErrorWasCalled).toBe(true)
 
-      const machineNoOnError = createMachine(() => ({
+      const machineNoOnError = define.machine(() => ({
         states: {},
       }))
 
-      machineNoOnError.state({
+      define.state(() => ({
+        machine: machineNoOnError,
         life: [],
-      })
+      }))
 
       await Promise.all([
         expect(machineNoOnError.onStart()).rejects.toThrow(),
@@ -343,7 +345,7 @@ describe(`define.machine`, () => {
 })
 
 describe(`define.state`, () => {
-  it.concurrent.only(
+  it.concurrent(
     `throws an error if a state does not define a machine on it's definition, even if the state is added to the machines definition`,
     async () => {
       await expect(
@@ -375,7 +377,7 @@ describe(`define.state`, () => {
     }
   )
 
-  it.concurrent.only(
+  it.concurrent(
     `throws an error if a state is dynamically defined after the machine starts`,
     async () => {
       await expect(

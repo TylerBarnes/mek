@@ -57,8 +57,10 @@ export class State {
 
   async initializeState({ context }: FunctionArgs) {
     if (this.initialized) {
-      throw new Error(
-        `State ${this.name} has already been initialized. States can only be initialized one time. Either this is a bug or you're abusing the public api :)`
+      return this.fatalError(
+        new Error(
+          `State ${this.name} has already been initialized. States can only be initialized one time. Either this is a bug or you're abusing the public api :)`
+        )
       )
     } else {
       this.initialized = true
