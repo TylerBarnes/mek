@@ -877,7 +877,7 @@ describe(`create.state`, () => {
     }
   )
 
-  it.concurrent(`states must begin with a capital letter`, async () => {
+  it.concurrent.only(`states must begin with a capital letter`, async () => {
     const machine = create.machine(() => ({
       states: {
         testState,
