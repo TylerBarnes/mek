@@ -389,7 +389,66 @@ const machine = (machineDef: MechDefinition) => {
 
 const state = (def: StateDefinition) => new State(def)
 
-export const define = {
+export const cycle = Object.assign((definition) => definition, {
+  //   onRequest: definition => definition,
+  //   respond: definition => definition,
+})
+
+type WaitForStateDefinition = {
+  handler: () => State
+}
+
+type TransitionHandlerArgs = { currentState: State; previousState: State }
+
+type OnTransitionDefinition = {
+  handler: (args: TransitionHandlerArgs) => {
+    value: any
+  } | null
+}
+
+type SignalDefinition = {
+  type: `WaitForState` | `OnTransitionDefinition`
+  handler: (args?: TransitionHandlerArgs) => any | State
+}
+
+export const effect = Object.assign(
+  (fn: (args: FunctionArgs) => any | Promise<any>) => ({
+    type: `EffectHandler`,
+    effectHandler: (args: FunctionArgs) => fn(args),
+  }),
+  {
+    // lazy: (fn) => fn(),
+    wait:
+      (time = 1, callback?: (...stuff: any) => void | Promise<void>) =>
+      () =>
+        new Promise((res) =>
+          setTimeout(async () => {
+            await callback?.()
+            res(null)
+          }, time * 1000)
+        ),
+    // respond: (signal, fn) => fn(),
+    // request: (state, fn) => fn(),
+    waitForState: (
+      stateFn: WaitForStateDefinition["handler"]
+    ): SignalDefinition => ({
+      type: `WaitForState`,
+      handler: stateFn,
+    }),
+    // waitForSequence: state => {},
+    // waitForOrderedSequence: state => {},
+    onTransition: (
+      handler?: OnTransitionDefinition["handler"]
+    ): SignalDefinition => ({
+      type: `OnTransitionDefinition`,
+      handler: handler || ((args) => ({ value: args })),
+    }),
+  }
+)
+
+export const create = {
   machine,
   state,
+  effect,
+  cycle,
 }

@@ -1,11 +1,10 @@
-import { createMachine, cycle, effect } from "./index"
-import { define } from "./mekk"
+import { create, cycle, effect } from "./mekk"
 
-describe(`define.machine`, () => {
+describe(`create.machine`, () => {
   it.concurrent.only(
     `can create and run a minimal machine without throwing errors`,
     async () => {
-      const machine = define.machine(() => ({
+      const machine = create.machine(() => ({
         states: {},
       }))
 
@@ -17,13 +16,13 @@ describe(`define.machine`, () => {
   it.concurrent.only(
     `can create and run a minimal machine and state without throwing errors`,
     async () => {
-      const machine = define.machine(() => ({
+      const machine = create.machine(() => ({
         states: {
           TestState,
         },
       }))
 
-      const TestState = define.state(() => ({
+      const TestState = create.state(() => ({
         machine,
         life: [],
       }))
@@ -39,13 +38,13 @@ describe(`define.machine`, () => {
   it.concurrent.only(
     `machine.onStart() returns a promise that resolves when the machine has started running`,
     async () => {
-      const machine = define.machine(() => ({
+      const machine = create.machine(() => ({
         states: {
           TestState,
         },
       }))
 
-      const TestState = define.state(() => ({
+      const TestState = create.state(() => ({
         machine,
         life: [],
       }))
@@ -61,13 +60,13 @@ describe(`define.machine`, () => {
     async () => {
       let flag = false
 
-      const machine = define.machine(() => ({
+      const machine = create.machine(() => ({
         states: {
           TestState,
         },
       }))
 
-      const TestState = define.state(() => ({
+      const TestState = create.state(() => ({
         machine,
         life: [
           cycle({
@@ -96,7 +95,7 @@ describe(`define.machine`, () => {
     async () => {
       let onErrorWasCalled = false
 
-      const machineOnError = define.machine(() => ({
+      const machineOnError = create.machine(() => ({
         onError: () => {
           onErrorWasCalled = true
         },
@@ -104,7 +103,7 @@ describe(`define.machine`, () => {
         states: {},
       }))
 
-      define.state(() => ({
+      create.state(() => ({
         machine: machineOnError,
         life: [],
       }))
@@ -112,11 +111,11 @@ describe(`define.machine`, () => {
       await expect(machineOnError.onStop()).resolves.toBeUndefined()
       expect(onErrorWasCalled).toBe(true)
 
-      const machineNoOnError = define.machine(() => ({
+      const machineNoOnError = create.machine(() => ({
         states: {},
       }))
 
-      define.state(() => ({
+      create.state(() => ({
         machine: machineNoOnError,
         life: [],
       }))
@@ -128,98 +127,113 @@ describe(`define.machine`, () => {
     }
   )
 
-  test.concurrent(
+  test.concurrent.only(
     `the first state in the states: {} object in the machine definition is the initial state`,
     async () => {
-      const machine = createMachine(() => ({
+      const machine = create.machine(() => ({
         states: {
           StateOne,
           StateTwo,
         },
 
-        signals: {
-          onTransition,
-        },
+        // signals: {
+        //   onTransition,
+        // },
       }))
 
-      const StateOne = machine.state({
+      const enteredStates: string[] = []
+
+      const StateOne = create.state(() => ({
+        machine,
         life: [
           cycle({
             name: `go to state 2`,
+            run: effect(() => enteredStates.push(`StateOne`)),
             thenGoTo: () => StateTwo,
           }),
         ],
-      })
+      }))
 
-      const StateTwo = machine.state({
+      const StateTwo = create.state(() => ({
+        machine,
         life: [
           cycle({
+            run: effect(() => enteredStates.push(`StateTwo`)),
             name: `done`,
           }),
         ],
-      })
+      }))
 
-      const onTransition = machine.signal(effect.onTransition())
+      // const onTransition = machine.signal(effect.onTransition())
 
-      onTransition(({ previousState, currentState }) => {
-        expect(currentState.name).toBe(`StateOne`)
-        expect(previousState).toBeUndefined()
-        onTransition.unsubscribe()
-      })
+      // onTransition(({ previousState, currentState }) => {
+      //   expect(currentState.name).toBe(`StateOne`)
+      //   expect(previousState).toBeUndefined()
+      //   onTransition.unsubscribe()
+      // })
 
       await machine.onStop()
+      expect(enteredStates).toEqual([`StateOne`, `StateTwo`])
 
-      expect(onTransition.did.run()).toBe(true)
-      expect(onTransition.did.unsubscribe()).toBe(true)
-      expect(onTransition.did.invocationCount()).toBe(1)
+      // expect(onTransition.did.run()).toBe(true)
+      // expect(onTransition.did.unsubscribe()).toBe(true)
+      // expect(onTransition.did.invocationCount()).toBe(1)
     }
   )
 
   it.concurrent(
     `when a machine has the initial property defined, that state is the initial state instead of the first state in the states object`,
     async () => {
-      const machine = createMachine(() => ({
-        initial: StateTwo,
+      const machine = create.machine(() => ({
+        initialState: StateTwo,
+
         states: {
           StateOne,
           StateTwo,
         },
 
-        signals: {
-          onTransition,
-        },
+        // signals: {
+        //   onTransition,
+        // },
       }))
 
-      const StateOne = machine.state({
+      const enteredStates: string[] = []
+
+      const StateOne = create.state(() => ({
+        machine,
         life: [
           cycle({
             name: `go to state 2`,
+            run: effect(() => enteredStates.push(`StateOne`)),
             thenGoTo: () => StateTwo,
           }),
         ],
-      })
+      }))
 
-      const StateTwo = machine.state({
+      const StateTwo = create.state(() => ({
+        machine,
         life: [
           cycle({
+            run: effect(() => enteredStates.push(`StateTwo`)),
             name: `done`,
           }),
         ],
-      })
+      }))
 
-      const onTransition = machine.signal(effect.onTransition())
+      // const onTransition = create.signal(effect.onTransition())
 
-      onTransition(({ previousState, currentState }) => {
-        expect(currentState.name).toBe(`StateOne`)
-        expect(previousState).toBeUndefined()
-        onTransition.unsubscribe()
-      })
+      // onTransition(({ previousState, currentState }) => {
+      //   expect(currentState.name).toBe(`StateOne`)
+      //   expect(previousState).toBeUndefined()
+      //   onTransition.unsubscribe()
+      // })
 
       await machine.onStop()
+      expect(enteredStates).toEqual([`StateTwo`])
 
-      expect(onTransition.did.run()).toBe(true)
-      expect(onTransition.did.unsubscribe()).toBe(true)
-      expect(onTransition.did.invocationCount()).toBe(1)
+      // expect(onTransition.did.run()).toBe(true)
+      // expect(onTransition.did.unsubscribe()).toBe(true)
+      // expect(onTransition.did.invocationCount()).toBe(1)
     }
   )
 
@@ -344,13 +358,13 @@ describe(`define.machine`, () => {
   )
 })
 
-describe(`define.state`, () => {
+describe(`create.state`, () => {
   it.concurrent(
     `throws an error if a state does not define a machine on it's definition, even if the state is added to the machines definition`,
     async () => {
       await expect(
         new Promise(async (res, rej) => {
-          const machine = define.machine(() => ({
+          const machine = create.machine(() => ({
             states: { StateOne },
             onError: (error) => {
               expect(error.message).toContain(
@@ -361,7 +375,7 @@ describe(`define.state`, () => {
           }))
 
           // @ts-ignore
-          const StateOne = define.state(() => ({
+          const StateOne = create.state(() => ({
             life: [],
           }))
 
@@ -382,7 +396,7 @@ describe(`define.state`, () => {
     async () => {
       await expect(
         new Promise(async (res, rej) => {
-          const machine = define.machine(() => ({
+          const machine = create.machine(() => ({
             states: {},
             onError: (error) => {
               expect(error.message).toContain(
@@ -394,7 +408,7 @@ describe(`define.state`, () => {
 
           await machine.onStart()
 
-          define.state(() => ({
+          create.state(() => ({
             machine,
             life: [],
           }))
@@ -940,7 +954,7 @@ describe(`define.state`, () => {
   )
 })
 
-describe(`define.signal`, () => {
+describe(`create.signal`, () => {
   it.concurrent(
     `throws an error if a signal is not defined on the machine definition, even if it's added with machine.signal()`,
     async () => {
