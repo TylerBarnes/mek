@@ -1582,7 +1582,7 @@ describe(`cycle`, () => {
 })
 
 describe(`effect`, () => {
-  it.concurrent(
+  it.concurrent.only(
     `effect.wait waits for the specified number of seconds`,
     async () => {
       const time = Date.now()
@@ -1591,7 +1591,7 @@ describe(`effect`, () => {
     }
   )
 
-  it.concurrent(
+  it.concurrent.only(
     `effect.onTransition returns an onTransition handler definition`,
     () => {
       const definition = effect.onTransition(
