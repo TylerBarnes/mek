@@ -1550,24 +1550,27 @@ describe(`cycle`, () => {
     })
   })
 
-  test.concurrent(
+  test.concurrent.only(
     `effect methods besides effect()/effect.wait() throw errors when passed to cycle.run() or when called outside of cycle.run()`,
     async () => {
-      const machine = createMachine(() => ({
+      const machine = create.machine(() => ({
         states: {
           StateOne,
         },
       }))
 
-      const StateOne = machine.state({
+      const StateOne = create.state(() => ({
+        machine,
         life: [
           cycle({
             run: effect.onTransition(({}) => ({ value: null })),
           }),
         ],
-      })
+      }))
 
-      await expect(machine.onStop()).rejects.toThrow()
+      await expect(machine.onStop()).rejects.toThrow(
+        `Life cycle run must be an effect function. State: `
+      )
     }
   )
 
