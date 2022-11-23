@@ -892,24 +892,25 @@ describe(`create.state`, () => {
     await expect(machine.onStart()).rejects.toThrow()
   })
 
-  it.concurrent(
+  it.concurrent.only(
     `errors when thenGoTo returns a state that isn't defined on the machine`,
     async () => {
-      const machine = createMachine(() => ({
+      const machine = create.machine(() => ({
         initial: StateTwo,
         states: {
           StateOne,
         },
       }))
 
-      const machine2 = createMachine(() => ({
+      const machine2 = create.machine(() => ({
         initial: StateTwo,
         states: {
           StateTwo,
         },
       }))
 
-      const StateOne = machine.state({
+      const StateOne = create.state(() => ({
+        machine,
         life: [
           cycle({
             name: `wait so that machine2 is initialized. to simulate a machine that's already running when we attempt to transition to the wrong state`,
@@ -920,20 +921,23 @@ describe(`create.state`, () => {
             thenGoTo: () => StateTwo,
           }),
         ],
-      })
+      }))
 
-      const StateTwo = machine2.state({
+      const StateTwo = create.state(() => ({
+        machine: machine2,
         life: [
           cycle({
             name: `go to state 1`,
             thenGoTo: () => StateOne,
           }),
         ],
-      })
+      }))
+
+      const errFragment = `attempted to transition to a state that was defined on a different machine (State `
 
       await Promise.all([
-        expect(machine.onStop()).rejects.toThrow(),
-        expect(machine2.onStop()).rejects.toThrow(),
+        expect(machine.onStop()).rejects.toThrow(errFragment),
+        expect(machine2.onStop()).rejects.toThrow(errFragment),
       ])
     }
   )
