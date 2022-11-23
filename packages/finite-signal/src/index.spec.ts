@@ -361,7 +361,7 @@ describe(`create.machine`, () => {
 })
 
 describe(`create.state`, () => {
-  it.concurrent(
+  it.concurrent.only(
     `throws an error if a state does not define a machine on it's definition, even if the state is added to the machines definition`,
     async () => {
       await expect(
@@ -393,7 +393,7 @@ describe(`create.state`, () => {
     }
   )
 
-  it.concurrent(
+  it.concurrent.only(
     `throws an error if a state is dynamically defined after the machine starts`,
     async () => {
       await expect(
