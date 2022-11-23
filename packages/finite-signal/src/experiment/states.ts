@@ -5,7 +5,7 @@ export const StateOne = create.state(() => ({
   machine,
   life: [
     cycle({
-      name: `StateOne`,
+      name: `Go to StateTwo`,
       run: effect(() => {
         console.log(`StateOne effect`)
       }),
