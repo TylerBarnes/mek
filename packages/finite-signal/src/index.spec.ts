@@ -36,18 +36,19 @@ describe(`define.machine`, () => {
     }
   )
 
-  it.concurrent(
+  it.concurrent.only(
     `machine.onStart() returns a promise that resolves when the machine has started running`,
     async () => {
-      const machine = createMachine(() => ({
+      const machine = define.machine(() => ({
         states: {
           TestState,
         },
       }))
 
-      const TestState = machine.state({
+      const TestState = define.state(() => ({
+        machine,
         life: [],
-      })
+      }))
 
       expect(TestState.name).toBeUndefined()
       await machine.onStart()
@@ -55,27 +56,30 @@ describe(`define.machine`, () => {
     }
   )
 
-  it.concurrent(
+  it.concurrent.only(
     `machine.onStop() returns a promise that resolves when the machine has stopped running`,
     async () => {
       let flag = false
 
-      const machine = createMachine(() => ({
+      const machine = define.machine(() => ({
         states: {
-          TestState: machine.state({
-            life: [
-              cycle({
-                name: `Test`,
-                run: effect(async () => {
-                  await new Promise((res) => setTimeout(res, 100))
-                  setImmediate(() => {
-                    flag = true
-                  })
-                }),
-              }),
-            ],
-          }),
+          TestState,
         },
+      }))
+
+      const TestState = define.state(() => ({
+        machine,
+        life: [
+          cycle({
+            name: `Test`,
+            run: effect(async () => {
+              await new Promise((res) => setTimeout(res, 100))
+              setImmediate(() => {
+                flag = true
+              })
+            }),
+          }),
+        ],
       }))
 
       const startTime = Date.now()
