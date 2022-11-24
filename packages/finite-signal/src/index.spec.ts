@@ -319,6 +319,10 @@ describe(`create.machine`, () => {
   test.todo(`machines can be linked together and communicate via signals`)
 
   test.todo(
+    `machine and state definitions are as static as possible and can't be changed after creation. For example any thenGoTo function is called when the machine is defined, not during state lifecycles.`
+  )
+
+  test.todo(
     `states can fork into multiple simultaneous state trees with cycle({ thenGoTo: () => [StateOne, StateTwo, Etc]})`
   )
 
