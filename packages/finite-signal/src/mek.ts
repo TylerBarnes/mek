@@ -65,7 +65,7 @@ export class State {
     return this
   }
 
-  get [getMachine]() {
+  [getMachine]() {
     return this.machine
   }
 
@@ -408,13 +408,13 @@ export class Mech {
             `State "${stateName}" is undefined.\nMost likely your state isn't defined when your machine is initialized. You can fix this by declaring your machine definition as a function.\n\nExample:\ncreate.machine(() => ({ states: { ... } }))\n\nNot:\ncreate.machine({ states: { ... } })`
           )
         )
-      } else if (typeof state[getMachine] === `undefined`) {
+      } else if (typeof state[getMachine]() === `undefined`) {
         return this.#fatalError(
           new Error(
             `State "${stateName}" does not have a machine defined in its state definition. @TODO add docs link`
           )
         )
-      } else if (state[getMachine] !== this) {
+      } else if (state[getMachine]() !== this) {
         return this.#fatalError(
           new Error(
             `State "${stateName}" was defined on a different machine. All states must be added to this machine's definition, and this machine must be added to their definition. @TODO add docs link.`
@@ -526,8 +526,8 @@ export class Mech {
       return
     }
 
-    if (nextState[getMachine] !== this) {
-      const wrongMachineName = nextState[getMachine]?.name
+    if (nextState[getMachine]() !== this) {
+      const wrongMachineName = nextState[getMachine]()?.name
       const nextStateName = nextState.name
 
       return this.#fatalError(
