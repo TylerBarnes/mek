@@ -1,4 +1,4 @@
-import { create, cycle, effect } from "./mekk"
+import { create, cycle, effect } from "./mek"
 
 describe(`create.machine`, () => {
   it.concurrent(

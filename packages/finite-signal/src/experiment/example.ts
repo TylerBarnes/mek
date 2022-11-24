@@ -1,4 +1,4 @@
-import { create, cycle, effect } from "../mekk"
+import { create, cycle, effect } from "../mek"
 import { StateOne } from "./states"
 
 export const machine = create.machine(() => ({
