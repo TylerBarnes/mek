@@ -253,9 +253,9 @@ describe(`create.machine`, () => {
   )
 
   test.concurrent(
-    `10 million transitions take less than 5 seconds`,
+    `3 million transitions take less than half a second`,
     async () => {
-      const iterationMax = 10_000_000
+      const iterationMax = 3_000_000
       const startTime = Date.now()
       let counter = 0
 
@@ -302,7 +302,7 @@ describe(`create.machine`, () => {
 
       const endTime = Date.now() - startTime
 
-      expect(endTime).toBeLessThan(5000)
+      expect(endTime).toBeLessThan(1000)
     }
   )
 

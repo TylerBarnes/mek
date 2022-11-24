@@ -81,7 +81,7 @@ export class State {
     this.nextState = null
   }
 
-  async [initializeState]({ context }: FunctionArgs) {
+  [initializeState]({ context }: FunctionArgs) {
     if (this.initialized) {
       return this.#fatalError(
         new Error(
@@ -94,10 +94,10 @@ export class State {
 
     this.context = context || {}
 
-    await this.runLifeCycles()
+    this.runLifeCycles()
   }
 
-  async runLifeCycles() {
+  runLifeCycles() {
     if (this.done) {
       this.#fatalError(
         new Error(
@@ -115,7 +115,7 @@ export class State {
     const lifeCycles = this.definition.life || []
     const context = this.context
 
-    let runReturn = {}
+    let runReturn: any = {}
 
     let cycleIndex = -1
 
@@ -162,7 +162,7 @@ export class State {
 
       if (runExists) {
         try {
-          runReturn = (await cycle.run.effectHandler({ context })) || {}
+          runReturn = cycle.run.effectHandler({ context }) || {}
         } catch (e) {
           return this.#fatalError(
             new Error(
@@ -195,7 +195,29 @@ export class State {
     }
 
     this.runningLifeCycle = false
-    this.goToNextState(runReturn)
+
+    if (
+      // checking for these values allows us to do 10M transitions in 1.5s
+      // instead of in 2.5s (when the run effect doesn't return a promise)
+      typeof runReturn === `object` &&
+      `then` in runReturn &&
+      // just checking if it's a promise is significantly slower
+      runReturn instanceof Promise
+    ) {
+      runReturn
+        .then((value) => {
+          this.goToNextState(value)
+        })
+        .catch((e) => {
+          return this.#fatalError(
+            new Error(
+              `Cycle "run" function in state ${this.name}.life[${cycleIndex}].cycle.run threw error:\n${e.stack}`
+            )
+          )
+        })
+    } else {
+      this.goToNextState(runReturn)
+    }
   }
 
   goToNextState(context: any = {}) {
