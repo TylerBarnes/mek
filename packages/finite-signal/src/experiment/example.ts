@@ -18,5 +18,9 @@ export const StateTwo = create.state({
         console.log(`StateTwo effect`)
       }),
     }),
+    cycle({
+      name: `keep machine alive`,
+      run: effect.wait(),
+    }),
   ],
 })
