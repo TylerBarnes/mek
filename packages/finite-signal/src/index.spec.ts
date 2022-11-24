@@ -68,6 +68,10 @@ describe(`createMachine`, () => {
     }
   )
 
+  it.todo(
+    `throws an error if a state is added to it's definition but that state has a different machine defined on its definition.`
+  )
+
   it.concurrent(
     `throws an error if a state is dynamically defined after the machine starts`,
     async () => {
