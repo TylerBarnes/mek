@@ -606,15 +606,20 @@ export const effect = Object.assign(
   }),
   {
     // lazy: (fn) => fn(),
-    wait: (time = 1, callback?: (...stuff: any) => void | Promise<void>) => ({
+    wait: (
+      time?: number,
+      callback?: (...stuff: any) => void | Promise<void>
+    ) => ({
       type: `EffectHandler`,
       effectHandler: () =>
-        new Promise((res) =>
-          setTimeout(async () => {
-            await callback?.()
-            res(null)
-          }, time * 1000)
-        ),
+        new Promise((res) => {
+          if (typeof time === `number`) {
+            setTimeout(async () => {
+              await callback?.()
+              res(null)
+            }, time * 1000)
+          }
+        }),
     }),
     // respond: (signal, fn) => fn(),
     // request: (state, fn) => fn(),
