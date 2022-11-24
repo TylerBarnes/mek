@@ -38,8 +38,19 @@ export class State {
 
   constructor(definition: StateDefinitionInput) {
     setImmediate(() => {
-      this.definition =
-        typeof definition === `function` ? definition() : definition
+      const defIsFn = typeof definition === `function`
+
+      this.definition = defIsFn ? definition() : definition
+
+      if (
+        !defIsFn &&
+        `machine` in this.definition &&
+        typeof this.definition.machine === `undefined`
+      ) {
+        throw new Error(
+          `State definition "machine" property is undefined.\nTo fix this you likely need to return your state definition from a function instead of as an object, because your machine isn't defined yet when your state is initialized.\n\nExample:\n\nconst state = new State(() => ({\n  machine: myMachine,\n  life: [\n    // life cycles\n  ]\n}))`
+        )
+      }
 
       // so that this runs after the machine has initialized
       setImmediate(() => {
@@ -366,7 +377,13 @@ export class Mech {
 
   initialize() {
     for (const [stateName, state] of Object.entries(this.definition.states)) {
-      if (typeof state[getMachine] === `undefined`) {
+      if (typeof state === `undefined`) {
+        return this.#fatalError(
+          new Error(
+            `State "${stateName}" is undefined.\nMost likely your state isn't defined when your machine is initialized. You can fix this by declaring your machine definition as a function.\n\nExample:\ncreate.machine(() => ({ states: { ... } }))\n\nNot:\ncreate.machine({ states: { ... } })`
+          )
+        )
+      } else if (typeof state[getMachine] === `undefined`) {
         return this.#fatalError(
           new Error(
             `State "${stateName}" does not have a machine defined in its state definition. @TODO add docs link`
