@@ -201,8 +201,11 @@ export class State {
       // instead of in 2.5s (when the run effect doesn't return a promise)
       typeof runReturn === `object` &&
       `then` in runReturn &&
-      // just checking if it's a promise is significantly slower
-      runReturn instanceof Promise
+      // checking for instanceof Promise is 2x slower,
+      // so just check if runReturn is promise-like
+      typeof runReturn.then === `function` &&
+      typeof runReturn.catch === `function` &&
+      typeof runReturn.finally === `function`
     ) {
       runReturn
         .then((value) => {
