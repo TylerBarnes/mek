@@ -208,10 +208,10 @@ export class State {
       typeof runReturn.finally === `function`
     ) {
       runReturn
-        .then((value) => {
+        .then((value: any) => {
           this.goToNextState(value)
         })
-        .catch((e) => {
+        .catch((e: Error) => {
           return this.#fatalError(
             new Error(
               `Cycle "run" function in state ${this.name}.life[${cycleIndex}].cycle.run threw error:\n${e.stack}`
