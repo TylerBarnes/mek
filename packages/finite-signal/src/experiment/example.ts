@@ -1,15 +1,26 @@
-import { define } from "../mekk"
+import { create, cycle, effect } from "../mek"
 import { StateOne } from "./states"
 
-export const machine = define.machine(() => ({
+export const machine = create.machine(() => ({
   states: {
     StateOne,
     StateTwo,
   },
 }))
 
-const StateTwo = define.state(() => ({
+export const StateTwo = create.state({
   machine,
-}))
 
-setInterval(() => {}, 1000)
+  life: [
+    cycle({
+      name: `StateTwo`,
+      run: effect(() => {
+        console.log(`StateTwo effect`)
+      }),
+    }),
+    cycle({
+      name: `keep machine alive`,
+      run: effect.wait(),
+    }),
+  ],
+})
