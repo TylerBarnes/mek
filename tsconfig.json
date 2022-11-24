@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "jsx": "react",
+    "esModuleInterop": true,
+    "lib": ["ES2021", "DOM"],
+    "target": "ESNext",
+    "allowJs": true,
+    "declarationMap": true,
+    "declaration": true
+  },
+  "ts-node": {
+    "swc": false
+  }
+}

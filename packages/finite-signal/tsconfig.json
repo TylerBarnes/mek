@@ -1,13 +1,7 @@
 {
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "module": "commonjs",
-    "jsx": "react",
-    "esModuleInterop": true,
-    "outDir": "dist",
-    "lib": ["ES2021", "DOM"],
-    "allowJs": true,
-    "declarationMap": true,
-    "declaration": true
+    "outDir": "dist"
   },
   "include": ["src"],
   "ts-node": {
