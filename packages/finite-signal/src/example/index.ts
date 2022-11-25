@@ -13,6 +13,5 @@ console.log(`
 // onGreenLightTransition(() => {
 //   console.log(`green light dope dude`)
 // })
-setInterval(() => {}, 1000)
 // onLightColourChange
 // onGreenLightTransition

@@ -1,17 +1,17 @@
-import { createMachine } from "../index"
+import { create } from "../mek"
 import {
-  //   GreenLight,
-  //   YellowLight,
+  GreenLight,
+  YellowLight,
   RedLight,
   //   onLightColourChange,
   //   onGreenLightTransition,
 } from "./states"
 
-export const lightMachine = createMachine(() => ({
+export const lightMachine = create.machine(() => ({
   states: {
     RedLight,
-    // GreenLight,
-    // YellowLight,
+    GreenLight,
+    YellowLight,
   },
 
   onError: (e) => {
@@ -23,7 +23,5 @@ export const lightMachine = createMachine(() => ({
     // onGreenLightTransition,
   },
 }))
-
-console.log(5, { lightMachine })
 
 // export { onGreenLightTransition, onLightColourChange }
