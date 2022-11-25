@@ -1,6 +1,25 @@
 import { create, cycle, effect } from "./mek"
+import fs from "fs"
+import path from "path"
 
-const iterationMax = 10_000_000
+const filesDir = path.join(__dirname, "files")
+const removeFilesDir = () => {
+  if (fs.existsSync(filesDir)) {
+    fs.rmdirSync(filesDir, { recursive: true })
+  }
+}
+const recreateFilesDir = () => {
+  removeFilesDir()
+
+  fs.mkdirSync(filesDir)
+}
+
+recreateFilesDir()
+
+const writeFile = (name: number | string) =>
+  fs.writeFileSync(path.join(__dirname, `/files/${name}.txt`), `hello world`)
+
+const iterationMax = 10_000
 const startTime = Date.now()
 let counter = 0
 
@@ -19,9 +38,10 @@ let StateOne = create.state({
   life: [
     cycle({
       name: `only cycle`,
-      condition: () => counter <= iterationMax,
+      condition: () => counter <= iterationMax - 1,
       run: effect(() => {
         counter++
+        writeFile(counter)
       }),
       thenGoTo: () => StateOne,
     }),
@@ -39,22 +59,41 @@ machine
     })
   })
   .then(() => {
+    recreateFilesDir()
+
+    const loopBench = () => {
+      recreateFilesDir()
+
+      let count2 = 0
+      const start2 = Date.now()
+
+      while (count2 < iterationMax) {
+        count2++
+        writeFile(count2)
+      }
+      removeFilesDir()
+      console.log({
+        whileLoopCount: count2,
+        endTime: `${Date.now() - start2}ms`,
+      })
+    }
+
     let count = 0
     const start = Date.now()
-    let variable
 
     function yo() {
       if (count >= iterationMax) {
         console.log({
-          loopCount: count,
+          recursiveFnCount: count,
           endTime: `${Date.now() - start}ms`,
         })
+        loopBench()
         return
       }
-      variable = Date.now()
       count++
+      writeFile(count)
 
-      if (count % 1000 === 0) {
+      if (count % 200 === 0) {
         setImmediate(() => yo())
       } else {
         yo()
