@@ -6,14 +6,14 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev --parallel",
-    "lint": "turbo run lint",
+    "build": "pnpm run build",
+    "dev": "pnpm run dev --parallel",
+    "lint": "pnpm run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {
     "prettier": "latest",
-    "turbo": "latest"
+    "pnpm": "latest"
   },
   "engines": {
     "node": ">=14.0.0"

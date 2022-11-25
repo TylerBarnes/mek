@@ -10,6 +10,6 @@
     "declaration": true
   },
   "ts-node": {
-    "swc": false
+    "swc": true
   }
 }
