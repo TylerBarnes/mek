@@ -1,10 +1,10 @@
-import { createMachine, cycle, effect } from "./index"
+import { create, cycle, effect } from "./mek"
 
 const iterationMax = 10_000_000
 const startTime = Date.now()
 let counter = 0
 
-const machine = createMachine(() => ({
+const machine = create.machine(() => ({
   states: {
     StateOne,
   },
@@ -14,7 +14,8 @@ const machine = createMachine(() => ({
   },
 }))
 
-let StateOne = machine.state({
+let StateOne = create.state({
+  machine,
   life: [
     cycle({
       name: `only cycle`,
