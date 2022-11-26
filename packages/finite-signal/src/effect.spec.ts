@@ -57,6 +57,16 @@ describe(`effect`, () => {
     })
   })
 
+  it.todo(`effect.waitForSignal waits for an input signal to be called`)
+
+  it.todo(`effect.waitFor waits for a promise to resolve`)
+
+  it.todo(`effect.timeout adds a timeout to effect.waitForSignal/waitFor`)
+
+  it.todo(
+    `effect.decide adds a condition to the result of effect.waitForSignal. returning true causes the effect promise to resolve, returning false causes the effect to start waiting again.`
+  )
+
   it.todo(
     `effect.lazy() runs the effect handler but does not wait for it to resolve if it returns a promise`
   )
