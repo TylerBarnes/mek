@@ -4,14 +4,36 @@ import { lightMachine } from "./machine"
 export const GreenLight = create.state(() => ({
   machine: lightMachine,
   life: [
+    // @ts-ignore
+    cycle.onRequestState({
+      name: `When emergency mode is requested, wait for current state cycle to finish before going there`,
+      // condition: () => stuff
+      // @ts-ignore
+      allowRequestedStates: () => [EmergencyBlink],
+      run: effect
+        // @ts-ignore
+        .waitFor(GreenLight.onDone()),
+      // default
+      // decide: () => true,
+    }),
     cycle({
       run: effect(() => {
         console.log(`GreenLight`)
       }),
     }),
     cycle({
-      name: `Go to yellow light`,
-      run: effect.wait(2),
+      name: `Wait for input signals for max 10 seconds, then go to yellow light`,
+      run: effect
+        // @ts-ignore
+        .waitForSignal(() => [walkButtonPress, roadPressureSensor])
+        .timeout(10)
+        .decide(({ input, Wait, Proceed }) => {
+          if (input.something) {
+            return Wait
+          }
+
+          return Proceed
+        }),
       thenGoTo: () => YellowLight,
     }),
   ],
@@ -22,7 +44,8 @@ export const YellowLight = create.state(() => ({
   life: [
     cycle({
       name: `Go to red light`,
-      run: effect.wait(1),
+      run: effect.wait(3),
+      // decide: () => {},
       thenGoTo: () => RedLight,
     }),
   ],
