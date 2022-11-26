@@ -52,9 +52,15 @@ describe(`cycle`, () => {
     )
   })
 
+  it.todo(
+    `cycle.decide is a function that decides wether or not thenGoTo is called`
+  )
+
   it.todo(`fails if no name is provided`)
 
   it.todo(`cycle properties must be defined in a consistent order`)
 
   it.todo(`cycle names must be unique within each state`)
+
+  it.todo(`thenGoTo function cannot contain conditional logic`)
 })
