@@ -21,6 +21,7 @@ export const lightMachine = create.machine(() => ({
   signals: {
     // onLightColourChange,
     // onGreenLightTransition,
+    emoji: `⏱`,
   },
 }))
 
