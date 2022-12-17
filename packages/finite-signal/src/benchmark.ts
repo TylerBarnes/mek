@@ -5,7 +5,7 @@ import path from "path"
 const filesDir = path.join(__dirname, "files")
 const removeFilesDir = () => {
   if (fs.existsSync(filesDir)) {
-    fs.rmdirSync(filesDir, { recursive: true })
+    fs.rmSync(filesDir, { recursive: true })
   }
 }
 const recreateFilesDir = () => {
