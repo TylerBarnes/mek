@@ -13,6 +13,9 @@ describe(`cycle`, () => {
       life: [],
     })
 
+    machine.start()
+    await machine.onStop()
+
     expect(
       cycle({
         name: `test`,
@@ -47,9 +50,11 @@ describe(`cycle`, () => {
       ],
     })
 
-    await expect(machine.onStop()).rejects.toThrow(
-      `Life cycle run must be an effect function. State: `
-    )
+    await expect(
+      machine.onStop({
+        start: true,
+      })
+    ).rejects.toThrow(`Life cycle run must be an effect function. State: `)
   })
 
   it.todo(

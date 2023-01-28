@@ -6,6 +6,7 @@ describe(`create.machine`, () => {
       states: {},
     }))
 
+    machine.start()
     await machine.onStart()
     await machine.onStop()
   })
@@ -37,8 +38,11 @@ describe(`create.machine`, () => {
       states: { TestState3 },
     })
 
-    await machine.onStart(() => {
-      expect(TestState.name).toBe(`TestState`)
+    await machine.onStart({
+      callback: () => {
+        expect(TestState.name).toBe(`TestState`)
+      },
+      start: true,
     })
 
     await machine.onStop()
@@ -57,6 +61,7 @@ describe(`create.machine`, () => {
     })
 
     expect(TestState.name).toBeUndefined()
+    machine.start()
     await machine.onStart()
     expect(TestState.name).toBe(`TestState`)
   })
@@ -85,6 +90,7 @@ describe(`create.machine`, () => {
       ],
     })
 
+    machine.start()
     const startTime = Date.now()
     await machine.onStop()
     const endTime = Date.now()
@@ -109,6 +115,7 @@ describe(`create.machine`, () => {
       life: [],
     })
 
+    machineOnError.start()
     await expect(machineOnError.onStop()).resolves.toBeUndefined()
     expect(onErrorWasCalled).toBe(true)
 
@@ -121,9 +128,14 @@ describe(`create.machine`, () => {
       life: [],
     })
 
+    const onStartPromise = machineNoOnError.onStart()
+    const onStopPromise = machineNoOnError.onStop()
+
+    machineNoOnError.start()
+
     await Promise.all([
-      expect(machineNoOnError.onStart()).rejects.toThrow(),
-      expect(machineNoOnError.onStop()).rejects.toThrow(),
+      expect(onStartPromise).rejects.toThrow(),
+      expect(onStopPromise).rejects.toThrow(),
     ])
   })
 
@@ -161,6 +173,8 @@ describe(`create.machine`, () => {
         }),
       ],
     })
+
+    machine.start()
 
     // const onTransition = machine.signal(effect.onTransition())
 
@@ -222,7 +236,7 @@ describe(`create.machine`, () => {
     //   expect(previousState).toBeUndefined()
     //   onTransition.unsubscribe()
     // })
-
+    machine.start()
     await machine.onStop()
     expect(enteredStates).toEqual([`StateTwo`])
 
@@ -275,6 +289,7 @@ describe(`create.machine`, () => {
       ],
     })
 
+    machine.start()
     await machine.onStop()
 
     const endTime = Date.now() - startTime

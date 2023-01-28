@@ -36,14 +36,15 @@ export class State {
 
   context: any = {}
 
-  constructor(definition: StateDefinitionInput) {
-    setImmediate(() => {
-      const defIsFn = typeof definition === `function`
+  initialStateDefinition: StateDefinitionInput
 
-      this.definition = defIsFn ? definition() : definition
+  constructor(definition: StateDefinitionInput) {
+    const defIsFn = typeof definition === `function`
+
+    if (!defIsFn) {
+      this.definition = definition
 
       if (
-        !defIsFn &&
         `machine` in this.definition &&
         typeof this.definition.machine === `undefined`
       ) {
@@ -52,17 +53,52 @@ export class State {
         )
       }
 
-      // so that this runs after the machine has initialized
-      setImmediate(() => {
-        this.machine = this.definition.machine
+      this.#addMachineFromDefinition()
+    } else if (defIsFn) {
+      this.initialStateDefinition = definition
 
-        if (this.machine && this.machine[addState]) {
-          this.machine[addState](this)
+      // peek machine to see if it's already running
+      try {
+        const { machine } = definition()
+
+        if (machine.status === `running`) {
+          machine[fatalError](
+            new Error(
+              `Machine is already running. You cannot add a state after a machine has started.`
+            )
+          )
         }
-      })
-    })
+      } catch (e) {
+        // ignore errors here. if there's no machine it will be caught later
+      }
+    }
 
     return this
+  }
+
+  // if the state is defined before the machine the machine will need to initialize
+  // the state definition after the machine is defined
+  _maybeInitializeDefinitionLate(stateName: string) {
+    if (!this.definition) {
+      if (typeof this.initialStateDefinition !== `function`) {
+        return this.#fatalError(
+          new Error(
+            `State "${stateName}" does not have a state definition. @TODO add docs link`
+          )
+        )
+      }
+
+      this.definition = this.initialStateDefinition()
+      this.#addMachineFromDefinition()
+    }
+  }
+
+  #addMachineFromDefinition() {
+    this.machine = this.definition.machine
+
+    if (this.machine && this.machine[addState]) {
+      this.machine[addState](this)
+    }
   }
 
   [getMachine]() {
@@ -257,7 +293,13 @@ type MechDefinition = {
 }
 
 type MechDefinitionInput = (() => MechDefinition) | MechDefinition
-
+type OnStartStop =
+  | {
+      callback?: () => Promise<void> | void
+      start?: boolean
+      stop?: boolean
+    }
+  | undefined
 export class Mech {
   name?: string
 
@@ -285,28 +327,54 @@ export class Mech {
   #awaitingStopPromise: boolean = false
   #stopInterval: NodeJS.Timeout
 
+  initialMachineDefinition: MechDefinitionInput
+
   constructor(machineDef: MechDefinitionInput) {
     this.createLifeCyclePromises()
 
-    // wait so that initial State classes are defined
-    setImmediate(() => {
-      this.initializeMachineDefinition(machineDef)
-
-      // during this second setImmediate, States initialize themselves
-      setImmediate(() => {
-        // wait to the third so that this runs after all states have initialized themselves,
-        // which they only do after this machine adds its definition
-        setImmediate(() => {
-          const initialized = this.initialize()
-
-          if (initialized) {
-            this.start()
-          }
-        })
-      })
-    })
+    this.initialMachineDefinition = machineDef
 
     return this
+  }
+
+  start() {
+    if (this.status === `running`) {
+      return
+    }
+
+    if (!this.initialMachineDefinition) {
+      throw new Error(`Cannot start a machine without a definition`)
+    }
+
+    this.initializeMachineDefinition(this.initialMachineDefinition)
+
+    const initialized = this.initialize()
+
+    if (!initialized) {
+      throw new Error(
+        `Machine not initialized. Something went wrong, this is a bug.`
+      )
+    }
+
+    this.status = `running`
+    this.#resolveOnStart()
+
+    // recreate lifecycle promises so that we can start again later
+    this.createLifeCyclePromises()
+
+    if (this.initialState) {
+      this.transition(this.initialState, {})
+    } else {
+      this.stop()
+    }
+  }
+
+  async stop() {
+    this.#resolveOnStop()
+    // incase we stop before we start, resolve the start promise so code can continue
+    this.#resolveOnStart()
+
+    this.status = `stopped`
   }
 
   private createLifeCyclePromises() {
@@ -408,13 +476,19 @@ export class Mech {
             `State "${stateName}" is undefined.\nMost likely your state isn't defined when your machine is initialized. You can fix this by declaring your machine definition as a function.\n\nExample:\ncreate.machine(() => ({ states: { ... } }))\n\nNot:\ncreate.machine({ states: { ... } })`
           )
         )
-      } else if (typeof state[getMachine]() === `undefined`) {
+      }
+
+      state._maybeInitializeDefinitionLate(stateName)
+
+      if (typeof state[getMachine]() === `undefined`) {
         return this.#fatalError(
           new Error(
             `State "${stateName}" does not have a machine defined in its state definition. @TODO add docs link`
           )
         )
-      } else if (state[getMachine]() !== this) {
+      }
+
+      if (state[getMachine]() !== this) {
         return this.#fatalError(
           new Error(
             `State "${stateName}" was defined on a different machine. All states must be added to this machine's definition, and this machine must be added to their definition. @TODO add docs link.`
@@ -426,11 +500,9 @@ export class Mech {
         stateName.charAt(0) === stateName.charAt(0).toUpperCase()
 
       if (!nameIsCapitalized) {
-        this.#fatalError(
+        return this.#fatalError(
           new Error(`State names must be capitalized. State: ${stateName}`)
         )
-
-        return false
       }
 
       state[addName](stateName)
@@ -493,32 +565,6 @@ export class Mech {
 
     const initialStateName = Object.keys(this.definition.states)[0]
     this.initialState = this.definition.states[initialStateName]
-  }
-
-  async start() {
-    if (this.status === `running`) {
-      return
-    }
-
-    this.status = `running`
-    this.#resolveOnStart()
-
-    // recreate lifecycle promises so that we can start again later
-    this.createLifeCyclePromises()
-
-    if (this.initialState) {
-      this.transition(this.initialState, {})
-    } else {
-      this.stop()
-    }
-  }
-
-  async stop() {
-    this.#resolveOnStop()
-    // incase we stop before we start, resolve the start promise so code can continue
-    this.#resolveOnStart()
-
-    this.status = `stopped`
   }
 
   transition(nextState: State, context: any) {
@@ -602,14 +648,46 @@ export class Mech {
     return true
   }
 
-  public onStart(callback?: () => Promise<void> | void) {
+  public onStart(
+    { callback, start }: OnStartStop = {
+      start: false,
+    }
+  ) {
     this.#awaitingStartPromise = true
-    return this.#onStartPromise.then(callback || (() => {}))
+
+    const startPromise = this.#onStartPromise.then(callback || (() => {}))
+
+    if (start) {
+      setImmediate(() => {
+        this.start()
+      })
+    }
+
+    return startPromise
   }
 
-  public onStop(callback?: () => Promise<void> | void) {
+  public onStop(
+    { callback, stop, start }: OnStartStop = {
+      stop: false,
+      start: false,
+    }
+  ) {
     this.#awaitingStopPromise = true
-    return this.#onStopPromise.then(callback || (() => {}))
+    const stopPromise = this.#onStopPromise.then(callback || (() => {}))
+
+    if (start) {
+      setImmediate(() => {
+        this.start()
+      })
+    }
+
+    if (stop) {
+      setImmediate(() => {
+        this.stop()
+      })
+    }
+
+    return stopPromise
   }
 }
 

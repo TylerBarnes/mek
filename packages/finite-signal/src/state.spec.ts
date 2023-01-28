@@ -20,7 +20,9 @@ describe(`create.state`, () => {
         })
 
         // onStop will resolve before onError is called
-        await machine.onStop()
+        await machine.onStop({
+          start: true,
+        })
         setImmediate(() => {
           // so onError will reject before this line is called
           // if we resolve here then onError wasn't called at the right time
@@ -54,7 +56,7 @@ describe(`create.state`, () => {
           ],
         })
 
-        await machine.onStart()
+        machine.start()
 
         create.state(() => ({
           machine,
@@ -98,7 +100,9 @@ describe(`create.state`, () => {
       ],
     })
 
-    await machine.onStop()
+    await machine.onStop({
+      start: true,
+    })
     expect(onErrorWasCalled).toBe(true)
   })
 
@@ -136,7 +140,9 @@ describe(`create.state`, () => {
       ],
     })
 
-    await machine.onStop()
+    await machine.onStop({
+      start: true,
+    })
     expect(onErrorWasCalled).toBe(true)
   })
 
@@ -177,7 +183,14 @@ describe(`create.state`, () => {
           ],
         })
 
-        Promise.all([machine1.onStop(), machine2.onStop()]).then(() => {
+        Promise.all([
+          machine1.onStop({
+            start: true,
+          }),
+          machine2.onStop({
+            start: true,
+          }),
+        ]).then(() => {
           res(null)
         })
       })
@@ -212,7 +225,9 @@ describe(`create.state`, () => {
       ],
     })
 
-    await machine.onStop()
+    await machine.onStop({
+      start: true,
+    })
 
     expect(cycleRan).toBe(true)
   })
@@ -324,7 +339,9 @@ describe(`create.state`, () => {
       ],
     })
 
-    await machine.onStop()
+    await machine.onStop({
+      start: true,
+    })
 
     expect(transitionCounter).toBe(3)
   })
@@ -401,7 +418,9 @@ describe(`create.state`, () => {
       ],
     })
 
-    await machine.onStop()
+    await machine.onStop({
+      start: true,
+    })
 
     expect(falseConditionFlag).toBe(false)
     expect(trueConditionFlag).toBe(true)
@@ -441,7 +460,9 @@ describe(`create.state`, () => {
       ],
     })
 
-    await machine.onStop()
+    await machine.onStop({
+      start: true,
+    })
     expect(counter).toBe(maxLoops)
     const endTime = Date.now() - startTime
 
@@ -494,7 +515,9 @@ describe(`create.state`, () => {
       infiniteLoopingMachine.stop()
     }, Number(`${secondsTilStop}000`))
 
-    await infiniteLoopingMachine.onStop()
+    await infiniteLoopingMachine.onStop({
+      start: true,
+    })
     clearTimeout(timeout)
     expect(hadToManuallyStopMachine).toBe(false)
   })
@@ -511,7 +534,11 @@ describe(`create.state`, () => {
       life: [],
     })
 
-    await expect(machine.onStart()).rejects.toThrow()
+    await expect(
+      machine.onStart({
+        start: true,
+      })
+    ).rejects.toThrow()
   })
 
   it(`errors when thenGoTo returns a state that isn't defined on the machine`, async () => {
@@ -556,8 +583,16 @@ describe(`create.state`, () => {
     const errFragment = `attempted to transition to a state that was defined on a different machine (State `
 
     await Promise.all([
-      expect(machine.onStop()).rejects.toThrow(errFragment),
-      expect(machine2.onStop()).rejects.toThrow(errFragment),
+      expect(
+        machine.onStop({
+          start: true,
+        })
+      ).rejects.toThrow(errFragment),
+      expect(
+        machine2.onStop({
+          start: true,
+        })
+      ).rejects.toThrow(errFragment),
     ])
   })
 
@@ -633,7 +668,9 @@ describe(`create.state`, () => {
       ],
     })
 
-    await machine.onStop()
+    await machine.onStop({
+      start: true,
+    })
 
     expect(cycleFnCount).toBe(7)
   })
