@@ -9,11 +9,15 @@
     "build": "pnpm run build",
     "dev": "pnpm run dev --parallel",
     "lint": "pnpm run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "nx-graph": "pnpm exec nx graph",
+    "preinstall": "npx only-allow pnpm"
   },
   "devDependencies": {
-    "prettier": "latest",
-    "pnpm": "latest"
+    "eslint": "^8.30.0",
+    "nx": "15.3.3",
+    "pnpm": "latest",
+    "prettier": "latest"
   },
   "engines": {
     "node": ">=14.0.0"
