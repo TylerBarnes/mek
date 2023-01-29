@@ -196,13 +196,15 @@ export class State {
         )
       }
 
+      const sharedErrorLocation = `in state ${this.name}.life[${cycleIndex}].cycle`
+
       if (runExists) {
         try {
           runReturn = cycle.run.effectHandler({ context }) || {}
         } catch (e) {
           return this.#fatalError(
             new Error(
-              `Cycle "run" function in state ${this.name}.life[${cycleIndex}].cycle.run threw error:\n${e.stack}`
+              `Cycle "run" function ${sharedErrorLocation}.run threw error:\n${e.stack}`
             )
           )
         }
@@ -211,8 +213,18 @@ export class State {
       const thenGoToExists = `thenGoTo` in cycle
 
       if (thenGoToExists && typeof cycle.thenGoTo !== `function`) {
-        throw new Error(
-          `thenGoTo must be a function which returns a State definition.`
+        return this.#fatalError(
+          new Error(
+            `"thenGoTo" must be a function which returns a State definition.`
+          )
+        )
+      }
+
+      if (thenGoToExists && !(`name` in cycle)) {
+        return this.#fatalError(
+          new Error(
+            `Any state cycle which declares a next state via "thenGoTo" must have a "name" property string describing the purpose of that transition. (${sharedErrorLocation})`
+          )
         )
       }
 
@@ -222,7 +234,7 @@ export class State {
         } catch (e) {
           return this.#fatalError(
             new Error(
-              `Cycle "thenGoTo" function in state ${this.name}.life[${cycleIndex}].cycle.thenGoTo threw error:\n${e.stack}`
+              `Cycle "thenGoTo" function ${sharedErrorLocation}.thenGoTo threw error:\n${e.stack}`
             )
           )
         }
@@ -233,8 +245,9 @@ export class State {
     this.runningLifeCycle = false
 
     if (
-      // checking for these values allows us to do 10M transitions in 1.5s
-      // instead of in 2.5s (when the run effect doesn't return a promise)
+      // checking for these values instead of always awaiting
+      // allows us to do 15M transitions in 0.9s instead of
+      // 10M in 2.5s (when the run effect doesn't return a promise)
       typeof runReturn === `object` &&
       `then` in runReturn &&
       // checking for instanceof Promise is 2x slower,

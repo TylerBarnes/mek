@@ -1,29 +1,31 @@
 {
-  "name": "finite-signal",
-  "version": "0.0.0",
-  "private": true,
-  "workspaces": [
-    "packages/*"
-  ],
-  "scripts": {
-    "build": "pnpm run build",
-    "dev": "pnpm run dev --parallel",
-    "lint": "pnpm run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "nx-graph": "pnpm exec nx graph",
-    "preinstall": "npx only-allow pnpm"
-  },
+  "name": "@tylerb/mek",
+  "version": "0.0.1",
+  "description": "A user-friendly finite state machine library for TypeScript",
+  "exports": "./dist/index.js",
   "devDependencies": {
+    "0x": "^5.4.1",
+    "@swc/cli": "^0.1.57",
+    "@swc/core": "^1.3.14",
+    "@swc/helpers": "^0.4.12",
+    "@swc/jest": "^0.2.23",
+    "@types/jest": "^29.2.2",
+    "@types/node": "^18",
     "eslint": "^8.30.0",
-    "nx": "15.3.3",
-    "pnpm": "latest",
-    "prettier": "latest"
+    "jest": "^29.3.1",
+    "ts-node": "^10.9.1",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^4.8.4"
   },
-  "engines": {
-    "node": ">=14.0.0"
-  },
-  "dependencies": {
-    "@types/node": "^17.0.12"
-  },
-  "packageManager": "pnpm@7.15.0"
+  "scripts": {
+    "dev": "ts-node-dev ./src/example/index.ts",
+    "test": "jest --maxConcurrency=30",
+    "test:watch": "jest --watch --maxConcurrency=30",
+    "build": "swc ./src -d ./dist --source-maps",
+    "example": "ts-node-dev ./src/example/index.ts",
+    "benchmark": "pnpm run build && node ./dist/benchmark",
+    "flame": "pnpm run build && 0x -o ./dist/benchmark.js",
+    "preinstall": "npx only-allow pnpm",
+    "prepublish": "pnpm run build"
+  }
 }
