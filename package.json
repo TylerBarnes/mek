@@ -1,8 +1,8 @@
 {
   "name": "@tylerb/mek",
-  "version": "0.0.1",
+  "version": "0.0.4",
   "description": "A user-friendly finite state machine library for TypeScript",
-  "exports": "./dist/index.js",
+  "exports": "./dist/mek.js",
   "devDependencies": {
     "0x": "^5.4.1",
     "@swc/cli": "^0.1.57",
@@ -18,14 +18,15 @@
     "typescript": "^4.8.4"
   },
   "scripts": {
-    "dev": "ts-node-dev ./src/example/index.ts",
-    "test": "jest --maxConcurrency=30",
-    "test:watch": "jest --watch --maxConcurrency=30",
-    "build": "swc ./src -d ./dist --source-maps",
-    "example": "ts-node-dev ./src/example/index.ts",
-    "benchmark": "pnpm run build && node ./dist/benchmark",
-    "flame": "pnpm run build && 0x -o ./dist/benchmark.js",
+    "d": "ts-node-dev ./src/example/index.ts",
+    "t": "jest --maxConcurrency=30",
+    "t:w": "jest --watch --maxConcurrency=30",
+    "b": "swc ./src -d ./dist --source-maps",
+    "w": "swc ./src -d ./dist --source-maps --watch",
+    "bench": "pnpm run b && node ./dist/benchmark",
+    "flame": "pnpm run b && 0x -o ./dist/benchmark.js",
     "preinstall": "npx only-allow pnpm",
-    "prepublish": "pnpm run build"
+    "prepublish": "pnpm run b",
+    "p": "npm publish --access public"
   }
 }
