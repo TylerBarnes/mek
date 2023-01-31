@@ -580,7 +580,7 @@ describe(`create.state`, () => {
       ],
     }))
 
-    const errFragment = `attempted to transition to a state that was defined on a different machine (State `
+    const errFragment = `attempted to transition to a state that was defined on a different machine`
 
     await Promise.all([
       expect(
