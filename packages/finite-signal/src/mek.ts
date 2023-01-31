@@ -221,7 +221,7 @@ export class State {
     const thenGoToExists = `thenGoTo` in cycle
 
     if (runExists && !thenGoToExists) {
-      this.fastMaybePromiseCallback(runReturn, (resolvedValue) => {
+      this.fastMaybePromiseCallback(runReturn, (_resolvedValue) => {
         this.runNextLifeCycle()
       })
       return
@@ -233,19 +233,15 @@ export class State {
       thenGoTo =
         typeof cycle.thenGoTo === `function` ? cycle.thenGoTo() : cycle.thenGoTo
     } catch (e) {
-      return this.#fatalError(e)
+      return this.#fatalError(
+        new Error(
+          `Cycle "thenGoTo" function in state ${this.name}.life[${cycleIndex}].cycle.thenGoTo threw error:\n${e.stack}`
+        )
+      )
     }
 
-    if (thenGoToExists && thenGoTo) {
-      try {
-        this.nextState = thenGoTo
-      } catch (e) {
-        return this.#fatalError(
-          new Error(
-            `Cycle "thenGoTo" function in state ${this.name}.life[${cycleIndex}].cycle.thenGoTo threw error:\n${e.stack}`
-          )
-        )
-      }
+    if (thenGoTo) {
+      this.nextState = thenGoTo
 
       // go to next state
       this.fastMaybePromiseCallback(runReturn, (resolvedValue) => {
