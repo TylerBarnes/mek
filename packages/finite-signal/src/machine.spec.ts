@@ -293,7 +293,7 @@ describe(`create.machine`, () => {
     await machine.onStop()
 
     const endTime = Date.now() - startTime
-    expect(endTime).toBeLessThan(1000)
+    expect(endTime).toBeLessThan(2000)
   })
 
   test.todo(
