@@ -15,7 +15,7 @@ type EffectHandlerDefinition = {
 }
 type LifeCycle = {
   condition?: (args: FunctionArgs) => boolean
-  thenGoTo?: () => State
+  thenGoTo?: () => State | State
   run?: EffectHandlerDefinition
 }
 type LifeCycleList = Array<LifeCycle>
@@ -227,17 +227,18 @@ export class State {
       return
     }
 
-    if (thenGoToExists && typeof cycle.thenGoTo !== `function`) {
-      return this.#fatalError(
-        new Error(
-          `thenGoTo must be a function which returns a State definition.`
-        )
-      )
+    let thenGoTo: State
+
+    try {
+      thenGoTo =
+        typeof cycle.thenGoTo === `function` ? cycle.thenGoTo() : cycle.thenGoTo
+    } catch (e) {
+      return this.#fatalError(e)
     }
 
-    if (thenGoToExists && typeof cycle.thenGoTo === `function`) {
+    if (thenGoToExists && thenGoTo) {
       try {
-        this.nextState = cycle.thenGoTo()
+        this.nextState = thenGoTo
       } catch (e) {
         return this.#fatalError(
           new Error(
