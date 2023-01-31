@@ -448,43 +448,22 @@ export class Mech {
 
   private createLifeCyclePromises() {
     if (!this.#awaitingStartPromise) {
-      this.#awaitingStartPromise = false
-
       this.#onStartPromise = new Promise((res, rej) => {
         // @ts-ignore
         this.#resolveOnStart = res
+
         // @ts-ignore
-        this.#rejectOnStart = (args) => {
-          if (this.#stopInterval) {
-            clearInterval(this.#stopInterval)
-          }
-          rej(args)
-        }
+        this.#rejectOnStart = rej
       })
     }
 
     if (!this.#awaitingStopPromise) {
-      if (this.#stopInterval) {
-        clearInterval(this.#stopInterval)
-      }
-
-      this.#awaitingStopPromise = false
-      // this prevents node process from closing until machine.stop() is called
-      this.#stopInterval = setInterval(() => {}, 1_000_000)
-
       this.#onStopPromise = new Promise((res, rej) => {
         // @ts-ignore
-        this.#resolveOnStop = (args) => {
-          clearInterval(this.#stopInterval)
-          // @ts-ignore
-          res(args)
-        }
+        this.#resolveOnStop = res
 
         // @ts-ignore
-        this.#rejectOnStop = (args) => {
-          clearInterval(this.#stopInterval)
-          rej(args)
-        }
+        this.#rejectOnStop = rej
       })
     }
   }
