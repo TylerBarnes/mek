@@ -2,14 +2,17 @@
   "compilerOptions": {
     "module": "commonjs",
     "jsx": "react",
+    "outDir": "dist",
     "esModuleInterop": true,
     "lib": ["ES2021", "DOM"],
-    "target": "ESNext",
+    "target": "es6",
     "allowJs": true,
     "declarationMap": true,
     "declaration": true
   },
+  "include": ["src"],
   "ts-node": {
     "swc": true
   }
 }
+

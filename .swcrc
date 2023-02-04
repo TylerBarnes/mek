@@ -1,16 +1,15 @@
 {
     "jsc": {
-      "parser": {
+        "parser": {
         "syntax": "typescript",
         "tsx": false,
         "decorators": true,
         "dynamicImport": true
-      },
-      "target": "es2017",
-      "baseUrl": "./src"
+        },
+        "target": "es2017",
+        "baseUrl": "./src"
     },
     "module": {
-      "type": "commonjs"
+        "type": "commonjs"
     }
-  }
-  
+}
