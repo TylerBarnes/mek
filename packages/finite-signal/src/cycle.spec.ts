@@ -54,7 +54,9 @@ describe(`cycle`, () => {
       machine.onStop({
         start: true,
       })
-    ).rejects.toThrow(`Life cycle run must be an effect function. State: `)
+    ).rejects.toThrow(
+      `Life cycle run must be a function or an effect function. State:`
+    )
   })
 
   it.todo(

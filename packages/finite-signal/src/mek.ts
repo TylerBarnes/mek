@@ -16,7 +16,7 @@ type EffectHandlerDefinition = {
 type LifeCycle = {
   condition?: (args: FunctionArgs) => boolean
   thenGoTo?: () => State | State
-  run?: EffectHandlerDefinition
+  run?: CycleFunction | EffectHandlerDefinition
 }
 type LifeCycleList = Array<LifeCycle>
 type InternalLifeCycleList = Array<
@@ -196,19 +196,23 @@ export class State {
 
     if (
       runExists &&
+      typeof cycle.run !== `function` &&
       (typeof cycle.run?.effectHandler !== `function` ||
         cycle.run?.type !== `EffectHandler`)
     ) {
       return this.#fatalError(
         new Error(
-          `Life cycle run must be an effect function. State: ${this.name}. @TODO add docs link`
+          `Life cycle run must be a function or an effect function. State: ${this.name}. @TODO add docs link`
         )
       )
     }
 
     if (runExists) {
       try {
-        runReturn = cycle.run.effectHandler({ context }) || {}
+        const effectHandler =
+          `effectHandler` in cycle.run ? cycle.run.effectHandler : cycle.run
+
+        runReturn = effectHandler({ context }) || {}
       } catch (e) {
         return this.#fatalError(
           new Error(
