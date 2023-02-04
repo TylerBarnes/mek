@@ -48,6 +48,8 @@ let StateOne = create.state({
   ],
 })
 
+machine.start()
+
 machine
   .onStop()
   .finally(() => {
