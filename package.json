@@ -19,7 +19,7 @@
   },
   "scripts": {
     "d": "ts-node-dev ./src/example/index.ts",
-    "t": "jest --maxConcurrency=30",
+    "test": "jest --maxConcurrency=30",
     "t:w": "jest --watch --maxConcurrency=30",
     "b": "swc ./src -d ./dist --source-maps",
     "w": "swc ./src -d ./dist --source-maps --watch",
