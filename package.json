@@ -1,6 +1,6 @@
 {
   "name": "@tylerb/mek",
-  "version": "0.0.4",
+  "version": "0.0.9",
   "description": "A user-friendly finite state machine library for TypeScript",
   "exports": "./dist/mek.js",
   "devDependencies": {
@@ -21,8 +21,8 @@
     "d": "ts-node-dev ./src/example/index.ts",
     "test": "jest --maxConcurrency=30",
     "t:w": "jest --watch --maxConcurrency=30",
-    "b": "swc ./src -d ./dist --source-maps",
-    "w": "swc ./src -d ./dist --source-maps --watch",
+    "b": "tsc",
+    "w": "tsc -w",
     "bench": "pnpm run b && node ./dist/benchmark",
     "flame": "pnpm run b && 0x -o ./dist/benchmark.js",
     "preinstall": "npx only-allow pnpm",

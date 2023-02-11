@@ -8,11 +8,12 @@
     "target": "es6",
     "allowJs": true,
     "declarationMap": true,
-    "declaration": true
+    "declaration": true,
+    "sourceMap": true
   },
   "include": ["src"],
+  "exclude": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"],
   "ts-node": {
     "swc": true
   }
 }
-
