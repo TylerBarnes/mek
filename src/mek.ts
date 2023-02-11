@@ -14,7 +14,7 @@ type EffectHandlerDefinition = {
   effectHandler: CycleFunction
 }
 type LifeCycle = {
-  condition?: (args: FunctionArgs) => boolean
+  if?: (args: FunctionArgs) => boolean
   thenGoTo?: () => State | State
   run?: CycleFunction | EffectHandlerDefinition
 }
@@ -171,23 +171,31 @@ export class State {
     const context = this.context
 
     let runReturn: any = {}
-    let conditionMet = false
+    let ifMet = false
 
-    const conditionExists = `condition` in cycle
+    const ifExists = `if` in cycle
 
-    if (conditionExists && typeof cycle.condition === `function`) {
+    if (ifExists && typeof cycle.if !== `function`) {
+      return this.#fatalError(
+        new Error(
+          `Life cycle if must be a function. State: ${this.name}. @TODO add docs link`
+        )
+      )
+    }
+
+    if (ifExists && typeof cycle.if === `function`) {
       try {
-        conditionMet = cycle.condition({ context })
+        ifMet = cycle.if({ context })
       } catch (e) {
         return this.#fatalError(
           new Error(
-            `Cycle condition in state ${this.name}.life[${cycleIndex}].cycle.condition threw error:\n${e.stack}`
+            `Cycle if in state ${this.name}.life[${cycleIndex}].cycle.if threw error:\n${e.stack}`
           )
         )
       }
     }
 
-    if (conditionExists && !conditionMet) {
+    if (ifExists && !ifMet) {
       this.runNextLifeCycle()
       return
     }
@@ -288,13 +296,10 @@ export class State {
     if (
       // checking for these values allows us to do 15M transitions in 800ms
       // instead of 10M in 2.5s (when the run effect doesn't return a promise)
-      typeof value === `object` &&
-      `then` in value &&
       // checking for instanceof Promise is 2x slower,
       // so just check if value is promise-like
-      typeof value.then === `function` &&
-      typeof value.catch === `function` &&
-      typeof value.finally === `function`
+      typeof value === `object` &&
+      typeof value.then === `function`
     ) {
       value
         .then((resolvedValue: any) => {

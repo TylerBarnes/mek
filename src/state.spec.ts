@@ -106,7 +106,7 @@ describe(`create.state`, () => {
     expect(onErrorWasCalled).toBe(true)
   })
 
-  it(`create.machine({ onError }) is called for errors thrown inside of state cycle conditions`, async () => {
+  it(`create.machine({ onError }) is called for errors thrown inside of state cycle ifs`, async () => {
     let onErrorWasCalled = false
 
     const machine = create.machine(() => ({
@@ -115,7 +115,7 @@ describe(`create.state`, () => {
       },
       onError: (error) => {
         expect(error.message).toContain(
-          `Cycle condition in state StateOne.life[2].cycle.condition threw error`
+          `Cycle if in state StateOne.life[2].cycle.if threw error`
         )
         expect(error.message).toContain(`Intentional error`)
         onErrorWasCalled = true
@@ -132,8 +132,8 @@ describe(`create.state`, () => {
           name: `no error here, adding this to test that the error message includes the correct lifecycle index`,
         }),
         cycle({
-          name: `cycle throws an error in its condition`,
-          condition: () => {
+          name: `cycle throws an error in its if`,
+          if: () => {
             throw new Error(`Intentional error`)
           },
         }),
@@ -346,7 +346,7 @@ describe(`create.state`, () => {
     expect(transitionCounter).toBe(3)
   })
 
-  test(`state cycle conditions determine if a cycle will run or not`, async () => {
+  test(`state cycle ifs determine if a cycle will run or not`, async () => {
     const machine = create.machine(() => ({
       states: {
         StateOne,
@@ -364,13 +364,13 @@ describe(`create.state`, () => {
       life: [
         cycle({
           name: `never`,
-          condition: () => false,
+          if: () => false,
           run: effect(() => (falseConditionFlag = true)),
           thenGoTo: () => StateNever,
         }),
         cycle({
           name: `go to state 2`,
-          condition: () => true,
+          if: () => true,
           run: effect(() => {
             falseConditionFlag = false
             trueConditionFlag = false
@@ -384,22 +384,22 @@ describe(`create.state`, () => {
       machine,
       life: [
         cycle({
-          name: `first condition`,
-          condition: () => true,
+          name: `first if`,
+          if: () => true,
           run: effect(() => {
             trueConditionFlag = true
           }),
         }),
         cycle({
-          name: `first condition`,
-          condition: () => true,
+          name: `first if`,
+          if: () => true,
           run: effect(() => {
             secondTrueConditionFlag = true
           }),
         }),
         cycle({
           name: `never`,
-          condition: () => false,
+          if: () => false,
           thenGoTo: () => StateNever,
         }),
       ],
@@ -410,7 +410,7 @@ describe(`create.state`, () => {
       life: [
         cycle({
           name: `should never get here because the other states wont transition here`,
-          condition: () => true,
+          if: () => true,
           run: effect(() => {
             falseConditionFlag = true
           }),
@@ -451,7 +451,7 @@ describe(`create.state`, () => {
       life: [
         cycle({
           name: `only cycle`,
-          condition: () => counter < maxLoops,
+          if: () => counter < maxLoops,
           run: effect(() => {
             counter++
           }),
@@ -628,30 +628,30 @@ describe(`create.state`, () => {
 
     let cycleFnCount = 0
 
-    const condition = ({ context }) => {
+    const _if = ({ context }) => {
       cycleFnCount++
       assertValIsEqual(context)
       return context
     }
 
-    const run = effect(condition)
+    const run = effect(_if)
 
     const StateTwo = create.state({
       machine,
       life: [
         cycle({
-          condition,
+          if: _if,
           run,
         }),
         cycle({
           run: effect((args) => {
-            condition(args)
+            _if(args)
             // returning from run will only be passed on if this cycle transitions to a new state
             return { foo: `nope` }
           }),
         }),
         cycle({
-          condition,
+          if: _if,
           run,
           thenGoTo: () => Done,
         }),
@@ -662,7 +662,7 @@ describe(`create.state`, () => {
       machine,
       life: [
         cycle({
-          condition,
+          if: _if,
           run,
         }),
       ],

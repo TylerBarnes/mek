@@ -261,30 +261,30 @@ describe(`create.machine`, () => {
       },
     }))
 
-    const StateOne = create.state({
+    const StateOne = create.state(() => ({
       machine,
       life: [
         cycle({
           name: `only cycle`,
-          condition: () => counter <= iterationMax,
-          run: effect(() => {
+          if: () => counter <= iterationMax,
+          run: () => {
             counter++
-          }),
-          thenGoTo: () => StateTwo,
+          },
+          thenGoTo: StateTwo,
         }),
       ],
-    })
+    }))
 
     const StateTwo = create.state({
       machine,
       life: [
         cycle({
           name: `only cycle`,
-          condition: () => counter <= iterationMax,
-          run: effect(() => {
+          if: () => counter <= iterationMax,
+          run: () => {
             counter++
-          }),
-          thenGoTo: () => StateOne,
+          },
+          thenGoTo: StateOne,
         }),
       ],
     })
@@ -293,6 +293,7 @@ describe(`create.machine`, () => {
     await machine.onStop()
 
     const endTime = Date.now() - startTime
+    console.log({ endTime })
     expect(endTime).toBeLessThan(2000)
   })
 
@@ -304,7 +305,7 @@ describe(`create.machine`, () => {
     `states have storage that is only accessible (from the state or from signals) while in that state, and persists across transitions to and from a state`
   )
 
-  test.todo(`cycle conditions and effects can access state and machine storage`)
+  test.todo(`cycle ifs and effects can access state and machine storage`)
 
   test.todo(`machines can be linked together and communicate via signals`)
 
@@ -317,11 +318,11 @@ describe(`create.machine`, () => {
   )
 
   test.todo(
-    `state definitions are static and are only processed when they are defined the first time. for example conditions in thenGoTo will only run the first time (to discourage using unmappable conditionals inside thenGoTo)`
+    `state definitions are static and are only processed when they are defined the first time. for example ifs in thenGoTo will only run the first time (to discourage using unmappable conditionals inside thenGoTo)`
   )
 
   test.todo(
-    `state trees can end themselves by calling cycle.end({ condition: () => true })`
+    `state trees can end themselves by calling cycle.end({ if: () => true })`
   )
 
   test.todo(

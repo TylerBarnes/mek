@@ -38,7 +38,7 @@ let StateOne = create.state({
   life: [
     cycle({
       name: `only cycle`,
-      condition: () => counter <= iterationMax - 1,
+      if: () => counter <= iterationMax - 1,
       run: effect(() => {
         counter++
         writeFile(counter)
