@@ -8,14 +8,15 @@ const lastTransitionCountCheckTime = Symbol(`lastTransitionCountCheckTime`)
 const transitionCheckpointCount = Symbol(`transitionCheckpointCount`)
 const transitionCount = Symbol(`transitionCount`)
 
-type CycleFunction = (args: FunctionArgs) => Promise<any>
+type CycleFunction = (args: FunctionArgs) => Promise<any> | void | any
 type EffectHandlerDefinition = {
   type: `EffectHandler`
   effectHandler: CycleFunction
 }
 type LifeCycle = {
+  name?: string
   if?: (args: FunctionArgs) => boolean
-  thenGoTo?: () => State | State
+  thenGoTo?: State
   run?: CycleFunction | EffectHandlerDefinition
 }
 type LifeCycleList = Array<LifeCycle>
@@ -239,21 +240,8 @@ export class State {
       return
     }
 
-    let thenGoTo: State
-
-    try {
-      thenGoTo =
-        typeof cycle.thenGoTo === `function` ? cycle.thenGoTo() : cycle.thenGoTo
-    } catch (e) {
-      return this.#fatalError(
-        new Error(
-          `Cycle "thenGoTo" function in state ${this.name}.life[${cycleIndex}].cycle.thenGoTo threw error:\n${e.stack}`
-        )
-      )
-    }
-
-    if (thenGoTo) {
-      this.nextState = thenGoTo
+    if (cycle.thenGoTo) {
+      this.nextState = cycle.thenGoTo
 
       // go to next state
       this.fastMaybePromiseCallback(runReturn, (resolvedValue) => {
@@ -754,7 +742,7 @@ const machine = (machineDef: MechDefinitionInput) => {
 
 const state = (def: StateDefinitionInput) => new State(def)
 
-export const cycle = Object.assign((definition) => definition, {
+export const cycle = Object.assign((definition: LifeCycle) => definition, {
   //   onRequest: definition => definition,
   //   respond: definition => definition,
 })
@@ -777,7 +765,9 @@ type SignalDefinition = {
 }
 
 export const effect = Object.assign(
-  (fn: (args: FunctionArgs) => any | Promise<any>) => ({
+  (
+    fn: (args: FunctionArgs) => any | Promise<any>
+  ): EffectHandlerDefinition => ({
     type: `EffectHandler`,
     effectHandler: (args: FunctionArgs) => fn(args),
   }),
@@ -786,7 +776,7 @@ export const effect = Object.assign(
     wait: (
       time?: number,
       callback?: (...stuff: any) => void | Promise<void>
-    ) => ({
+    ): EffectHandlerDefinition => ({
       type: `EffectHandler`,
       effectHandler: () =>
         new Promise((res) => {

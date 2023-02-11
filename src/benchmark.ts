@@ -33,20 +33,20 @@ const machine = create.machine(() => ({
   },
 }))
 
-let StateOne = create.state({
+let StateOne = create.state(() => ({
   machine,
   life: [
     cycle({
       name: `only cycle`,
       if: () => counter <= iterationMax - 1,
-      run: effect(() => {
+      run: () => {
         counter++
         writeFile(counter)
-      }),
-      thenGoTo: () => StateOne,
+      },
+      thenGoTo: StateOne,
     }),
   ],
-})
+}))
 
 machine.start()
 

@@ -307,27 +307,27 @@ describe(`create.state`, () => {
       }
     }
 
-    const StateOne = create.state({
+    const StateOne = create.state(() => ({
       machine,
       life: [
         cycle({
           name: `go to state 2`,
           run: effect(() => onTransition(`StateOne`)),
-          thenGoTo: () => StateTwo,
+          thenGoTo: StateTwo,
         }),
       ],
-    })
+    }))
 
-    const StateTwo = create.state({
+    const StateTwo = create.state(() => ({
       machine,
       life: [
         cycle({
           name: `go to state 3`,
           run: effect(() => onTransition(`StateTwo`)),
-          thenGoTo: () => StateThree,
+          thenGoTo: StateThree,
         }),
       ],
-    })
+    }))
 
     const StateThree = create.state({
       machine,
@@ -359,14 +359,14 @@ describe(`create.state`, () => {
     let trueConditionFlag = false
     let secondTrueConditionFlag = false
 
-    const StateOne = create.state({
+    const StateOne = create.state(() => ({
       machine,
       life: [
         cycle({
           name: `never`,
           if: () => false,
           run: effect(() => (falseConditionFlag = true)),
-          thenGoTo: () => StateNever,
+          thenGoTo: StateNever,
         }),
         cycle({
           name: `go to state 2`,
@@ -375,12 +375,12 @@ describe(`create.state`, () => {
             falseConditionFlag = false
             trueConditionFlag = false
           }),
-          thenGoTo: () => StateTwo,
+          thenGoTo: StateTwo,
         }),
       ],
-    })
+    }))
 
-    const StateTwo = create.state({
+    const StateTwo = create.state(() => ({
       machine,
       life: [
         cycle({
@@ -400,10 +400,10 @@ describe(`create.state`, () => {
         cycle({
           name: `never`,
           if: () => false,
-          thenGoTo: () => StateNever,
+          thenGoTo: StateNever,
         }),
       ],
-    })
+    }))
 
     const StateNever = create.state({
       machine,
@@ -446,7 +446,7 @@ describe(`create.state`, () => {
     let counter = 0
     const maxLoops = 100000
 
-    let StateOne = create.state({
+    let StateOne = create.state(() => ({
       machine,
       life: [
         cycle({
@@ -455,10 +455,10 @@ describe(`create.state`, () => {
           run: effect(() => {
             counter++
           }),
-          thenGoTo: () => StateOne,
+          thenGoTo: StateOne,
         }),
       ],
-    })
+    }))
 
     await machine.onStop({
       start: true,
@@ -487,16 +487,16 @@ describe(`create.state`, () => {
 
     let transitionCount = 0
 
-    const InfiniteState = create.state({
+    const InfiniteState = create.state(() => ({
       machine: infiniteLoopingMachine,
       life: [
         cycle({
           name: `infinitely transition back into the same state`,
           run: effect(() => transitionCount++),
-          thenGoTo: () => InfiniteState,
+          thenGoTo: InfiniteState,
         }),
       ],
-    })
+    }))
 
     // const onTransition = infiniteLoopingMachine.signal(effect.onTransition())
     // onTransition(() => transitionCount++)
@@ -556,7 +556,7 @@ describe(`create.state`, () => {
       },
     }))
 
-    const StateOne = create.state({
+    const StateOne = create.state(() => ({
       machine,
       life: [
         cycle({
@@ -565,17 +565,17 @@ describe(`create.state`, () => {
         }),
         cycle({
           name: `go to state 2`,
-          thenGoTo: () => StateTwo,
+          thenGoTo: StateTwo,
         }),
       ],
-    })
+    }))
 
     const StateTwo = create.state(() => ({
       machine: machine2,
       life: [
         cycle({
           name: `go to state 1`,
-          thenGoTo: () => StateOne,
+          thenGoTo: StateOne,
         }),
       ],
     }))
@@ -609,7 +609,7 @@ describe(`create.state`, () => {
       foo: `ya`,
     }
 
-    const StateOne = create.state({
+    const StateOne = create.state(() => ({
       machine,
       life: [
         cycle({
@@ -617,10 +617,10 @@ describe(`create.state`, () => {
           run: effect(() => {
             return value
           }),
-          thenGoTo: () => StateTwo,
+          thenGoTo: StateTwo,
         }),
       ],
-    })
+    }))
 
     const assertValIsEqual = (val: typeof value) => {
       expect(val).toBe(value)
@@ -636,7 +636,7 @@ describe(`create.state`, () => {
 
     const run = effect(_if)
 
-    const StateTwo = create.state({
+    const StateTwo = create.state(() => ({
       machine,
       life: [
         cycle({
@@ -653,10 +653,10 @@ describe(`create.state`, () => {
         cycle({
           if: _if,
           run,
-          thenGoTo: () => Done,
+          thenGoTo: Done,
         }),
       ],
-    })
+    }))
 
     const Done = create.state({
       machine,

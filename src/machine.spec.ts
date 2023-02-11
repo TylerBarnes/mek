@@ -153,16 +153,16 @@ describe(`create.machine`, () => {
 
     const enteredStates: string[] = []
 
-    const StateOne = create.state({
+    const StateOne = create.state(() => ({
       machine,
       life: [
         cycle({
           name: `go to state 2`,
           run: effect(() => enteredStates.push(`StateOne`)),
-          thenGoTo: () => StateTwo,
+          thenGoTo: StateTwo,
         }),
       ],
-    })
+    }))
 
     const StateTwo = create.state({
       machine,
@@ -208,16 +208,16 @@ describe(`create.machine`, () => {
 
     const enteredStates: string[] = []
 
-    const StateOne = create.state({
+    const StateOne = create.state(() => ({
       machine,
       life: [
         cycle({
           name: `go to state 2`,
           run: effect(() => enteredStates.push(`StateOne`)),
-          thenGoTo: () => StateTwo,
+          thenGoTo: StateTwo,
         }),
       ],
-    })
+    }))
 
     const StateTwo = create.state({
       machine,
@@ -314,7 +314,7 @@ describe(`create.machine`, () => {
   )
 
   test.todo(
-    `states can fork into multiple simultaneous state trees with cycle({ thenGoTo: () => [StateOne, StateTwo, Etc]})`
+    `states can fork into multiple simultaneous state trees with cycle({ thenGoTo: [StateOne, StateTwo, Etc]})`
   )
 
   test.todo(

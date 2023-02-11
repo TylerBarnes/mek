@@ -51,7 +51,7 @@ const GreenLight = create.state(() => ({
 
     //   //   return Proceed
     //   // }),
-    //   thenGoTo: () => YellowLight,
+    //   thenGoTo: YellowLight,
     // }),
     cycle({
       run: effect(() => console.log(`🟢`)),
@@ -59,12 +59,12 @@ const GreenLight = create.state(() => ({
     cycle({
       name: `Go to yellow`,
       run: effect.wait(4),
-      thenGoTo: () => YellowLight,
+      thenGoTo: YellowLight,
     }),
   ],
 }))
 
-const YellowLight = create.state({
+const YellowLight = create.state(() => ({
   machine: lightMachine,
   // signals: {
   //   emoji: `🟡`,
@@ -77,10 +77,10 @@ const YellowLight = create.state({
       name: `Go to red light`,
       run: effect.wait(3),
       // decide: () => {},
-      thenGoTo: () => RedLight,
+      thenGoTo: RedLight,
     }),
   ],
-})
+}))
 
 const RedLight = create.state({
   machine: lightMachine,
@@ -94,7 +94,7 @@ const RedLight = create.state({
     cycle({
       name: `Go to green light`,
       run: effect.wait(2),
-      thenGoTo: () => GreenLight,
+      thenGoTo: GreenLight,
     }),
   ],
 })
