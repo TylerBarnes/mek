@@ -94,6 +94,9 @@ export const RedLight = create.state(() => ({
     canIWalk: false,
   },
   life: [
+    // cycle({
+    // 	// when: RedLight.signals.emoji.is(`🛑`),
+    // }),
     cycle({
       run: effect(() => {
         console.log(`🛑`)
