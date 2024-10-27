@@ -313,10 +313,10 @@ export class State {
         .catch((e: Error) => {
           return this.#fatalError(
             new Error(
-              `Cycle "run" function in state ${this.name}.life[${
+              `Cycle "run" function in state ${this.name}.lifecycle[${
                 this.currentCycleIndex - 1
-              }].cycle.run threw error:\n${e.stack}`
-            )
+              }].run threw error:\n${e.stack}`,
+            ),
           )
         })
     } else {
