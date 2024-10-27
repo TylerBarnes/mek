@@ -159,17 +159,17 @@ export class State {
     this.runLifeCycles()
   }
 
-  runNextLifeCycle() {
+  runNextLifeCycle(context: any = this.context || {}) {
     const cycleIndex = this.currentCycleIndex++
 
     if (cycleIndex + 1 > this.definition.life.length) {
-      this.goToNextState()
+      this.goToNextState({
+        context,
+      })
       return
     }
 
     const cycle = this.definition.life[cycleIndex]
-
-    const context = this.context
 
     let runReturn: any = {}
     let ifMet = false
@@ -197,7 +197,7 @@ export class State {
     }
 
     if (ifExists && !ifMet) {
-      this.runNextLifeCycle()
+      this.runNextLifeCycle(context)
       return
     }
 
@@ -234,8 +234,8 @@ export class State {
     const thenGoToExists = `thenGoTo` in cycle
 
     if (runExists && !thenGoToExists) {
-      this.fastMaybePromiseCallback(runReturn, (_resolvedValue) => {
-        this.runNextLifeCycle()
+      this.fastMaybePromiseCallback(runReturn, (resolvedValue) => {
+        this.runNextLifeCycle(resolvedValue)
       })
       return
     }
