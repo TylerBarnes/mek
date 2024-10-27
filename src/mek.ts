@@ -197,8 +197,19 @@ export class State {
     }
 
     if (ifExists && !ifMet) {
+      if (process.env.DEBUG_MEK === `true`) {
+        process.stdout.write(
+          `Mek: state "${this.name}" skipping cycle "${cycle.name}"\n`,
+        )
+      }
       this.runNextLifeCycle(context)
       return
+    }
+
+    if (process.env.DEBUG_MEK === `true`) {
+      process.stdout.write(
+        `Mek: state "${this.name}" running cycle "${cycle.name}"\n`,
+      )
     }
 
     const runExists = `run` in cycle
@@ -644,6 +655,12 @@ export class Mech {
     // )
 
     this[transitionCount]++
+
+    if (process.env.DEBUG_MEK === `true`) {
+      process.stdout.write(
+        `Mek: machine "${this.name}" transitioning to state "${this.currentState.name}"\n`,
+      )
+    }
 
     if (this[transitionCount] % 2000 === 0) {
       const shouldContinue = this.checkForInfiniteTransitionLoop()
