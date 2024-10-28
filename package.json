@@ -1,6 +1,6 @@
 {
   "name": "@tylerb/mek",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "repository": "https://github.com/TylerBarnes/mek",
   "description": "A user-friendly finite state machine library for TypeScript",
   "exports": "./dist/mek.js",
