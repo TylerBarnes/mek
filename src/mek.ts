@@ -382,7 +382,10 @@ export class Mech {
   initialState: State
   currentState: State;
 
-  [transitionCount] = 0;
+  [transitionCount] = 0
+  public get transitionCount() {
+    return this[transitionCount]
+  }
   [transitionCheckpointCount] = 0;
   [lastTransitionCountCheckTime] = Date.now()
 
