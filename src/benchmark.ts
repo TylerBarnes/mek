@@ -1,5 +1,6 @@
-import { create, cycle, effect } from "./mek"
+import { create, cycle } from "./mek"
 import fs from "fs"
+import fsp from "fs/promises"
 import path from "path"
 
 const filesDir = path.join(__dirname, "files")
@@ -16,10 +17,14 @@ const recreateFilesDir = () => {
 
 recreateFilesDir()
 
+const getFilePath = (name: number | string) =>
+  path.join(__dirname, `/files/${name}.txt`)
 const writeFile = (name: number | string) =>
-  fs.writeFileSync(path.join(__dirname, `/files/${name}.txt`), `hello world`)
+  fs.writeFileSync(getFilePath(name), `hello world`)
+const writeFileAsync = (name: number | string) =>
+  fsp.writeFile(getFilePath(name), `hello world`)
 
-const iterationMax = 10_000
+const iterationMax = 20_000
 const startTime = Date.now()
 let counter = 0
 
@@ -60,10 +65,10 @@ machine
       duration: `${endTime}ms`,
     })
   })
-  .then(() => {
+  .then(async () => {
     recreateFilesDir()
 
-    const loopBench = () => {
+    const loopBench = async () => {
       recreateFilesDir()
 
       let count2 = 0
@@ -78,18 +83,33 @@ machine
         whileLoopCount: count2,
         endTime: `${Date.now() - start2}ms`,
       })
+
+      recreateFilesDir()
+
+      let asyncCount = 0
+      const asyncStart = Date.now()
+
+      while (asyncCount < iterationMax) {
+        asyncCount++
+        await writeFileAsync(asyncCount)
+      }
+      removeFilesDir()
+      console.log({
+        whileLoopCount: asyncCount,
+        endTime: `${Date.now() - asyncStart}ms`,
+      })
     }
 
     let count = 0
     const start = Date.now()
 
-    function yo() {
+    async function yo() {
       if (count >= iterationMax) {
         console.log({
           recursiveFnCount: count,
           endTime: `${Date.now() - start}ms`,
         })
-        loopBench()
+        await loopBench()
         return
       }
       count++
@@ -98,9 +118,9 @@ machine
       if (count % 200 === 0) {
         setImmediate(() => yo())
       } else {
-        yo()
+        await yo()
       }
     }
 
-    yo()
+    await yo()
   })
