@@ -9,7 +9,7 @@ This library allows for extremely performant synchronous operations without bloc
 
 The benchmark is admittedly naive, but this is a personal project and I don't have the time to improve it too much. Perhaps one day I will make some proper benchmarks :)
 
-This package has no dependencies. The only deps are dev depenendencies which aren't needed to run the package itself.
+This package has no dependencies. The only deps are dev dependencies which aren't needed to run the package itself.
 
 ## Usage
 
