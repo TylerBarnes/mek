@@ -1,6 +1,6 @@
 # Mek
 
-A DX/performance focused finite state machine package for TypeScript.
+A DX/performance focused finite state machine package for JavaScript.
 
 This package allows you to create readable and performant state machines.
 The UML state machine spec is not followed. I've just created something I find useful for writing predictable/readable logic flows that loosely follows the concept of state machines. I don't care much about it being correct, only about it being useful and fast!
