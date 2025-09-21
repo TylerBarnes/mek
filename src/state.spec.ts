@@ -441,6 +441,9 @@ expect(error.message).toContain(
       states: {
         StateOne,
       },
+      options: {
+        maxTransitionsPerSecond: 100000, // Allow high-speed transitions for this test
+      },
     }))
 
     let counter = 0
@@ -476,7 +479,7 @@ expect(error.message).toContain(
   test(`a state cannot infinitely transition to itself`, async () => {
     const infiniteLoopingMachine = create.machine(() => ({
       onError: (error) => {
-        expect(error.message).toContain(`Exceeded max transitions per second.`)
+expect(error.message).toContain(`Potential infinite loop detected`)
       },
 
       states: { InfiniteState },

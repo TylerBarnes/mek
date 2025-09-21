@@ -684,7 +684,33 @@ export class Mech {
       )
     }
 
-    if (this[transitionCount] % 2000 === 0) {
+// Early detection: Check after first 200 transitions to catch immediate runaways
+    // But only if using default limits (to avoid performance impact on benchmarks)
+    const maxTransitionsPerSec = this.definition?.options?.maxTransitionsPerSecond || 100
+    if (this[transitionCount] === 200 && maxTransitionsPerSec <= 100) {
+      const shouldContinue = this.checkForInfiniteTransitionLoop()
+      if (!shouldContinue) return
+    }
+    
+// For high-performance scenarios (like benchmarks), avoid throttling
+    // unless we're close to the limit
+    if (maxTransitionsPerSec > 1000) {
+      // High performance mode - direct transitions, minimal checking
+      if (this[transitionCount] % 100000 === 0) {
+        // Only check occasionally in high-perf mode
+        const shouldContinue = this.checkForInfiniteTransitionLoop()
+        if (!shouldContinue) return
+      }
+      
+      // Occasionally yield to event loop to prevent blocking
+      if (this[transitionCount] % 1000 === 0) {
+        setImmediate(() => {
+          this.currentState[initializeState]({ context })
+        })
+      } else {
+        this.currentState[initializeState]({ context })
+      }
+    } else if (this[transitionCount] % 2000 === 0) {
       const shouldContinue = this.checkForInfiniteTransitionLoop()
 
       if (shouldContinue) {
@@ -701,31 +727,50 @@ export class Mech {
     }
   }
 
-  private checkForInfiniteTransitionLoop() {
+private checkForInfiniteTransitionLoop() {
     const now = Date.now()
-
-    const lastCheckWasOver1Second =
-      now - this[lastTransitionCountCheckTime] > 1000
-
-    const lastCheckWasUnder3Seconds =
-      now - this[lastTransitionCountCheckTime] < 3000
-
-    const shouldCheck = lastCheckWasOver1Second && lastCheckWasUnder3Seconds
+    const timeSinceLastCheck = now - this[lastTransitionCountCheckTime]
+    const transitionsSinceLastCheck = this[transitionCount] - this[transitionCheckpointCount]
 
     const maxTransitionsPerSecond =
-      this.definition?.options?.maxTransitionsPerSecond || 1_000_000
+      this.definition?.options?.maxTransitionsPerSecond || 100
 
-    const exceededMaxTransitionsPerSecond =
-      this[transitionCount] - this[transitionCheckpointCount] >
-      maxTransitionsPerSecond
+    // Early detection: If we hit 200 transitions very quickly (< 5ms), that's likely a problem
+    // But only if maxTransitionsPerSecond is at the default (100) or lower
+    const isUsingDefaultLimit = maxTransitionsPerSecond <= 100
+    const isEarlyDetection = this[transitionCount] === 200 && timeSinceLastCheck < 5 && isUsingDefaultLimit
+    
+    // Normal detection: Check after 1+ seconds
+    const lastCheckWasOver1Second = timeSinceLastCheck > 1000
+    const lastCheckWasUnder3Seconds = timeSinceLastCheck < 3000
+    const shouldCheckNormally = lastCheckWasOver1Second && lastCheckWasUnder3Seconds
 
-    if (shouldCheck && exceededMaxTransitionsPerSecond) {
+    // If we're not doing any checks, just return early
+    if (!isEarlyDetection && !shouldCheckNormally) {
+      return true
+    }
+
+    const exceededMaxTransitionsPerSecond = transitionsSinceLastCheck > maxTransitionsPerSecond
+
+    if ((isEarlyDetection || (shouldCheckNormally && exceededMaxTransitionsPerSecond))) {
       return this.#fatalError(
         new Error(
-          `Exceeded max transitions per second. You may have an infinite state transition loop happening. Total transitions: ${this[transitionCount]}, transitions in the last second: ${this[transitionCheckpointCount]}`,
+`Potential infinite loop detected: ${transitionsSinceLastCheck} transitions in the last ${timeSinceLastCheck}ms (max: ${maxTransitionsPerSecond}).\n\n` +
+          `This usually happens when states immediately transition to each other without any async operations or delays.\n\n` +
+          `To fix this:\n` +
+          `1. Add async operations or delays between transitions\n` +
+          `2. Check your state logic for immediate circular transitions\n` +
+          `3. If this is intentional, increase the limit:\n\n` +
+          `   new Mek({\n` +
+          `     options: {\n` +
+          `       maxTransitionsPerSecond: 10000 // or your desired limit\n` +
+          `     },\n` +
+          `     states: { ... }\n` +
+          `   })\n\n` +
+          `Total transitions: ${this[transitionCount]}`,
         ),
       )
-    } else if (shouldCheck) {
+    } else if (shouldCheckNormally) {
       this[transitionCheckpointCount] = this[transitionCount]
     }
 
