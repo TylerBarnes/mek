@@ -75,6 +75,9 @@ const LoginSchema = v.object({
   username: v.pipe(v.string(), v.minLength(3)),
   password: v.pipe(v.string(), v.minLength(8))
 });
+```
+```
+```
 
 const UserSchema = v.object({
   id: v.string(),
@@ -88,7 +91,7 @@ const LoginState = create.state({
   input: LoginSchema,
   output: UserSchema,
   lifecycle: create.cycle({
-    run: async (context) => {
+    effect: async (context) => {
       // context.data is typed as LoginSchema output
       const user = await api.login(context.data);
       return user; // Must match UserSchema or validation fails
@@ -101,7 +104,7 @@ const DashboardState = create.state({
   name: 'dashboard',
   input: UserSchema, // Ensures data from LoginState is valid
   lifecycle: create.cycle({
-    run: async (context) => {
+    effect: async (context) => {
       // context.data is typed as UserSchema
       console.log(`Welcome ${context.data.name}!`);
     }
@@ -112,7 +115,7 @@ const DashboardState = create.state({
 
 ### Data Mapping Between States
 
-When states have different input/output schemas, lifecycles can map data:
+When states have different input/output schemas, lifecycles can map data using the `prepare` function in `thenGoTo`:
 
 ```typescript
 const ProfileState = create.state({
@@ -122,7 +125,7 @@ const ProfileState = create.state({
     displayName: v.string()
   }),
   lifecycle: create.cycle({
-    run: async (context) => {
+    effect: async (context) => {
       // Load profile data
     }
   })
@@ -131,17 +134,20 @@ const ProfileState = create.state({
 const DashboardState = create.state({
   name: 'dashboard',
   input: UserSchema,
-  output: v.object({ userId: v.string(), displayName: v.string() }),
+  output: UserSchema, // Output is still UserSchema
   lifecycle: create.cycle({
-    run: async (context) => {
-      // Process user data
-      return {
-        userId: context.data.id,
-        displayName: context.data.name
-      };
+    effect: async (context) => {
+      // Process user data, return the full user
+      return context.data;
     },
-    // TypeScript will enforce that output matches ProfileState.input
-    thenGoTo: 'profile'
+    thenGoTo: {
+      state: 'profile',
+      prepare: (output) => ({
+        // Map UserSchema to ProfileState's expected input
+        userId: output.id,
+        displayName: output.name
+      })
+    }
   })
 });
 ```
@@ -155,7 +161,7 @@ const StateA = create.state({
   name: 'stateA',
   output: v.object({ value: v.number() }),
   lifecycle: create.cycle({
-    run: () => ({ value: 42 }),
+    effect: () => ({ value: 42 }),
     thenGoTo: 'stateB' // TS error if StateB.input doesn't match StateA.output
   })
 });
@@ -164,7 +170,7 @@ const StateB = create.state({
   name: 'stateB',
   input: v.object({ value: v.number() }), // Must match StateA.output
   lifecycle: create.cycle({
-    run: (context) => {
+    effect: (context) => {
       console.log(context.data.value); // Typed as number
     }
   })
@@ -173,10 +179,11 @@ const StateB = create.state({
 
 ### Schema Validation Points
 
-1. **State Entry**: Validate input data when transitioning to a state
-2. **After `run`**: Validate output from `run` callback
-3. **Before `shouldGo`**: Ensure `shouldGo` receives validated data
-4. **State Exit**: Validate data being passed to next state
+. **State Entry**: Validate input data when transitioning to a state
+. **After `effect`**: Validate output from `effect` callback
+. **Before `shouldGo`**: Ensure `shouldGo` receives validated data
+. **Before `prepare`**: Validate data before transformation in `thenGoTo.prepare`
+. **State Exit**: Validate transformed data being passed to next state
 
 ### Error Handling
 
@@ -200,6 +207,9 @@ const machine = create.machine({
   }
 });
 ```
+```
+```
+
 ```
 
 ### Development Mode Features
