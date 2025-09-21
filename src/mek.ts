@@ -259,7 +259,10 @@ const thenGoToExists = `thenGoTo` in cycle
           const shouldGoResult = cycle.shouldGo({ context })
           if (!shouldGoResult) {
             // shouldGo returned false, don't transition
-            this.runNextLifeCycle(context)
+            // Use setImmediate to avoid deep synchronous recursion
+            setImmediate(() => {
+              this.runNextLifeCycle(context)
+            })
             return
           }
         } catch (e) {
