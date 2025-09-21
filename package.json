@@ -26,7 +26,7 @@
     "t:w": "jest --watch --maxConcurrency=30",
     "b": "tsc",
     "w": "tsc -w",
-    "bench": "pnpm run b && node ./dist/benchmark",
+    "bench": "tsx ./src/benchmark",
     "flame": "pnpm run b && 0x -o ./dist/benchmark.js",
     "preinstall": "npx only-allow pnpm",
     "prepublish": "pnpm run b",
