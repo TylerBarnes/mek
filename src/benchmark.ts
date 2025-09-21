@@ -24,7 +24,7 @@ const writeFile = (name: number | string) =>
 const writeFileAsync = (name: number | string) =>
   fsp.writeFile(getFilePath(name), `hello world`)
 
-const iterationMax = 200_000
+const iterationMax = 20000
 const startTime = Date.now()
 let counter = 0
 

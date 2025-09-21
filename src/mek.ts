@@ -8,7 +8,7 @@ const lastTransitionCountCheckTime = Symbol(`lastTransitionCountCheckTime`)
 const transitionCheckpointCount = Symbol(`transitionCheckpointCount`)
 const transitionCount = Symbol(`transitionCount`)
 
-type CycleFunction = (args: FunctionArgs) => Promise<any> | void | any
+type CycleFunction = (args: FunctionArgs) => Promise<any>
 type EffectHandlerDefinition = {
   type: `EffectHandler`
   effectHandler: CycleFunction
@@ -17,7 +17,7 @@ type LifeCycle = {
   name?: string
   if?: (args: FunctionArgs) => boolean
   shouldGo?: (args: FunctionArgs) => boolean
-  thenGoTo?: State
+  thenGoTo?: () => State | State
   run?: CycleFunction | EffectHandlerDefinition
 }
 type LifeCycleList = Array<LifeCycle>
@@ -74,8 +74,8 @@ export class State {
     if (machine.status === `running`) {
       return machine[fatalError](
         new Error(
-          `Machine is already running. You cannot add a state after a machine has started.`,
-        ),
+          `Machine is already running. You cannot add a state after a machine has started.`
+        )
       )
     }
   }
@@ -88,7 +88,7 @@ export class State {
       typeof this.definition.machine === `undefined`
     ) {
       throw new Error(
-        `State definition "machine" property is undefined.\nTo fix this you likely need to return your state definition from a function instead of as an object, because your machine isn't defined yet when your state is initialized.\n\nExample:\n\nconst state = new State(() => ({\n  machine: myMachine,\n  life: [\n    // life cycles\n  ]\n}))`,
+        `State definition "machine" property is undefined.\nTo fix this you likely need to return your state definition from a function instead of as an object, because your machine isn't defined yet when your state is initialized.\n\nExample:\n\nconst state = new State(() => ({\n  machine: myMachine,\n  life: [\n    // life cycles\n  ]\n}))`
       )
     }
 
@@ -102,16 +102,16 @@ export class State {
       if (typeof this.initialStateDefinition !== `function`) {
         return this.#fatalError(
           new Error(
-            `State "${stateName}" does not have a state definition. @TODO add docs link`,
-          ),
+            `State "${stateName}" does not have a state definition. @TODO add docs link`
+          )
         )
       }
 
       if (typeof this.initialStateDefinition !== `function`) {
         return this.#fatalError(
           new Error(
-            `Late initialized state did not have an initial state definition set. This is a bug.`,
-          ),
+            `Late initialized state did not have an initial state definition set. This is a bug.`
+          )
         )
       }
 
@@ -148,8 +148,8 @@ export class State {
     if (this.initialized) {
       return this.#fatalError(
         new Error(
-          `State ${this.name} has already been initialized. States can only be initialized one time. Either this is a bug or you're abusing the public api :)`,
-        ),
+          `State ${this.name} has already been initialized. States can only be initialized one time. Either this is a bug or you're abusing the public api :)`
+        )
       )
     } else {
       this.initialized = true
@@ -160,19 +160,19 @@ export class State {
     this.runLifeCycles()
   }
 
-  runNextLifeCycle(context: any = this.context || {}) {
+  runNextLifeCycle() {
     const cycleIndex = this.currentCycleIndex++
 
     if (cycleIndex + 1 > this.definition.life.length) {
-      this.goToNextState({
-        context,
-      })
+      this.goToNextState()
       return
     }
 
     const cycle = this.definition.life[cycleIndex]
 
-    let runReturn: any = context // Default to passing through the context
+    const context = this.context
+
+let runReturn: any = context // Default to passing through the context
     let ifMet = false
 
     const ifExists = `if` in cycle
@@ -180,8 +180,8 @@ export class State {
     if (ifExists && typeof cycle.if !== `function`) {
       return this.#fatalError(
         new Error(
-          `Life cycle if must be a function. State: ${this.name}. @TODO add docs link`,
-        ),
+          `Life cycle if must be a function. State: ${this.name}. @TODO add docs link`
+        )
       )
     }
 
@@ -191,26 +191,15 @@ export class State {
       } catch (e) {
         return this.#fatalError(
           new Error(
-            `Cycle if in state ${this.name}.lifecycle[${cycleIndex}].if threw error:\n${e.stack}`,
-          ),
+            `Cycle if in state ${this.name}.lifecycle[${cycleIndex}].if threw error:\n${e.stack}`
+          )
         )
       }
     }
 
     if (ifExists && !ifMet) {
-      if (process.env.DEBUG_MEK === `true`) {
-        process.stdout.write(
-          `Mek: state "${this.name}" skipping cycle "${cycle.name}"\n`,
-        )
-      }
-      this.runNextLifeCycle(context)
+      this.runNextLifeCycle()
       return
-    }
-
-    if (process.env.DEBUG_MEK === `true`) {
-      process.stdout.write(
-        `Mek: state "${this.name}" running cycle "${cycle.name}"\n`,
-      )
     }
 
     const runExists = `run` in cycle
@@ -223,12 +212,12 @@ export class State {
     ) {
       return this.#fatalError(
         new Error(
-          `Life cycle run must be a function or an effect function. State: ${this.name}. @TODO add docs link`,
-        ),
+          `Life cycle run must be a function or an effect function. State: ${this.name}. @TODO add docs link`
+        )
       )
     }
 
-if (runExists) {
+    if (runExists) {
       try {
         const effectHandler =
           `effectHandler` in cycle.run ? cycle.run.effectHandler : cycle.run
@@ -237,22 +226,35 @@ runReturn = effectHandler({ context }) || context // If run doesn't return anyth
       } catch (e) {
         return this.#fatalError(
           new Error(
-            `Cycle "run" function in state ${this.name}.lifecycle[${cycleIndex}].run threw error:\n${e.stack}`,
-          ),
+`Cycle "run" function in state ${this.name}.lifecycle[${cycleIndex}].run threw error:\n${e.stack}`
+          )
         )
       }
     }
 
-const thenGoToExists = `thenGoTo` in cycle
+    const thenGoToExists = `thenGoTo` in cycle
 
     if (runExists && !thenGoToExists) {
-      this.fastMaybePromiseCallback(runReturn, (resolvedValue) => {
-        this.runNextLifeCycle(resolvedValue)
+      this.fastMaybePromiseCallback(runReturn, (_resolvedValue) => {
+        this.runNextLifeCycle()
       })
       return
     }
 
-    if (cycle.thenGoTo) {
+    let thenGoTo: State
+
+    try {
+      thenGoTo =
+        typeof cycle.thenGoTo === `function` ? cycle.thenGoTo() : cycle.thenGoTo
+    } catch (e) {
+      return this.#fatalError(
+        new Error(
+          `Cycle "thenGoTo" function in state ${this.name}.life[${cycleIndex}].cycle.thenGoTo threw error:\n${e.stack}`
+        )
+      )
+    }
+
+if (thenGoTo) {
       // Check shouldGo condition if it exists
       if (cycle.shouldGo) {
         try {
@@ -261,7 +263,8 @@ const thenGoToExists = `thenGoTo` in cycle
             // shouldGo returned false, don't transition
             // Use setImmediate to avoid deep synchronous recursion
             setImmediate(() => {
-              this.runNextLifeCycle(context)
+              this.context = context
+              this.runNextLifeCycle()
             })
             return
           }
@@ -273,8 +276,8 @@ const thenGoToExists = `thenGoTo` in cycle
           )
         }
       }
-
-      this.nextState = cycle.thenGoTo
+      
+      this.nextState = thenGoTo
 
       // go to next state
       this.fastMaybePromiseCallback(runReturn, (resolvedValue) => {
@@ -290,8 +293,8 @@ const thenGoToExists = `thenGoTo` in cycle
     if (this.done) {
       this.#fatalError(
         new Error(
-          `State ${this.name} has already run. Cannot run life cycles again.`,
-        ),
+          `State ${this.name} has already run. Cannot run life cycles again.`
+        )
       )
     }
 
@@ -335,10 +338,10 @@ const thenGoToExists = `thenGoTo` in cycle
         .catch((e: Error) => {
           return this.#fatalError(
             new Error(
-              `Cycle "run" function in state ${this.name}.lifecycle[${
+              `Cycle "run" function in state ${this.name}.life[${
                 this.currentCycleIndex - 1
-              }].run threw error:\n${e.stack}`,
-            ),
+              }].cycle.run threw error:\n${e.stack}`
+            )
           )
         })
     } else {
@@ -404,10 +407,7 @@ export class Mech {
   initialState: State
   currentState: State;
 
-  [transitionCount] = 0
-  public get transitionCount() {
-    return this[transitionCount]
-  }
+  [transitionCount] = 0;
   [transitionCheckpointCount] = 0;
   [lastTransitionCountCheckTime] = Date.now()
 
@@ -450,7 +450,7 @@ export class Mech {
 
     if (!initialized) {
       throw new Error(
-        `Machine not initialized. Something went wrong, this is a bug.`,
+        `Machine not initialized. Something went wrong, this is a bug.`
       )
     }
 
@@ -537,8 +537,8 @@ export class Mech {
     if (this.initialized) {
       return this.#fatalError(
         new Error(
-          "Machine is already running. You cannot add a state after a machine has started.",
-        ),
+          "Machine is already running. You cannot add a state after a machine has started."
+        )
       )
     }
 
@@ -550,8 +550,8 @@ export class Mech {
       if (typeof state === `undefined`) {
         return this.#fatalError(
           new Error(
-            `State "${stateName}" is undefined.\nMost likely your state isn't defined when your machine is initialized. You can fix this by declaring your machine definition as a function.\n\nExample:\ncreate.machine(() => ({ states: { ... } }))\n\nNot:\ncreate.machine({ states: { ... } })`,
-          ),
+            `State "${stateName}" is undefined.\nMost likely your state isn't defined when your machine is initialized. You can fix this by declaring your machine definition as a function.\n\nExample:\ncreate.machine(() => ({ states: { ... } }))\n\nNot:\ncreate.machine({ states: { ... } })`
+          )
         )
       }
 
@@ -560,16 +560,16 @@ export class Mech {
       if (typeof state[getMachine]() === `undefined`) {
         return this.#fatalError(
           new Error(
-            `State "${stateName}" does not have a machine defined in its state definition. @TODO add docs link`,
-          ),
+            `State "${stateName}" does not have a machine defined in its state definition. @TODO add docs link`
+          )
         )
       }
 
       if (state[getMachine]() !== this) {
         return this.#fatalError(
           new Error(
-            `State "${stateName}" was defined on a different machine. All states must be added to this machine's definition, and this machine must be added to their definition. @TODO add docs link.`,
-          ),
+            `State "${stateName}" was defined on a different machine. All states must be added to this machine's definition, and this machine must be added to their definition. @TODO add docs link.`
+          )
         )
       }
 
@@ -578,7 +578,7 @@ export class Mech {
 
       if (!nameIsCapitalized) {
         return this.#fatalError(
-          new Error(`State names must be capitalized. State: ${stateName}`),
+          new Error(`State names must be capitalized. State: ${stateName}`)
         )
       }
 
@@ -590,8 +590,8 @@ export class Mech {
       if (!this.definition.states[state.name]) {
         return this.#fatalError(
           new Error(
-            `State "${state.name}" does not exist in this machines definition. @TODO add docs link`,
-          ),
+            `State "${state.name}" does not exist in this machines definition. @TODO add docs link`
+          )
         )
       }
     }
@@ -609,8 +609,8 @@ export class Mech {
     if (typeof inputDefinition !== `function` && !isObjectDef) {
       this.#fatalError(
         new Error(
-          `Machine definition must be a function or and object. @TODO add link to docs`,
-        ),
+          `Machine definition must be a function or and object. @TODO add link to docs`
+        )
       )
 
       return
@@ -663,8 +663,8 @@ export class Mech {
                   wrongMachineName ? ` from Machine "${wrongMachineName}"` : ``
                 })`
               : ``
-          }. State definitions cannot be shared between machines.`,
-        ),
+          }. State definitions cannot be shared between machines.`
+        )
       )
     }
 
@@ -681,39 +681,7 @@ export class Mech {
 
     this[transitionCount]++
 
-    if (process.env.DEBUG_MEK === `true`) {
-      process.stdout.write(
-        `Mek: machine "${this.name}" transitioning to state "${this.currentState.name}"\n`,
-      )
-    }
-
-// Early detection: Check after first 200 transitions to catch immediate runaways
-    // But only if using default limits (to avoid performance impact on benchmarks)
-    const maxTransitionsPerSec = this.definition?.options?.maxTransitionsPerSecond || 100
-    if (this[transitionCount] === 200 && maxTransitionsPerSec <= 100) {
-      const shouldContinue = this.checkForInfiniteTransitionLoop()
-      if (!shouldContinue) return
-    }
-    
-// For high-performance scenarios (like benchmarks), avoid throttling
-    // unless we're close to the limit
-    if (maxTransitionsPerSec > 1000) {
-      // High performance mode - direct transitions, minimal checking
-      if (this[transitionCount] % 100000 === 0) {
-        // Only check occasionally in high-perf mode
-        const shouldContinue = this.checkForInfiniteTransitionLoop()
-        if (!shouldContinue) return
-      }
-      
-      // Occasionally yield to event loop to prevent blocking
-      if (this[transitionCount] % 1000 === 0) {
-        setImmediate(() => {
-          this.currentState[initializeState]({ context })
-        })
-      } else {
-        this.currentState[initializeState]({ context })
-      }
-    } else if (this[transitionCount] % 2000 === 0) {
+    if (this[transitionCount] % 2000 === 0) {
       const shouldContinue = this.checkForInfiniteTransitionLoop()
 
       if (shouldContinue) {
@@ -730,50 +698,31 @@ export class Mech {
     }
   }
 
-private checkForInfiniteTransitionLoop() {
+  private checkForInfiniteTransitionLoop() {
     const now = Date.now()
-    const timeSinceLastCheck = now - this[lastTransitionCountCheckTime]
-    const transitionsSinceLastCheck = this[transitionCount] - this[transitionCheckpointCount]
+
+    const lastCheckWasOver1Second =
+      now - this[lastTransitionCountCheckTime] > 1000
+
+    const lastCheckWasUnder3Seconds =
+      now - this[lastTransitionCountCheckTime] < 3000
+
+    const shouldCheck = lastCheckWasOver1Second && lastCheckWasUnder3Seconds
 
     const maxTransitionsPerSecond =
-      this.definition?.options?.maxTransitionsPerSecond || 100
+      this.definition?.options?.maxTransitionsPerSecond || 1_000_000
 
-    // Early detection: If we hit 200 transitions very quickly (< 5ms), that's likely a problem
-    // But only if maxTransitionsPerSecond is at the default (100) or lower
-    const isUsingDefaultLimit = maxTransitionsPerSecond <= 100
-    const isEarlyDetection = this[transitionCount] === 200 && timeSinceLastCheck < 5 && isUsingDefaultLimit
-    
-    // Normal detection: Check after 1+ seconds
-    const lastCheckWasOver1Second = timeSinceLastCheck > 1000
-    const lastCheckWasUnder3Seconds = timeSinceLastCheck < 3000
-    const shouldCheckNormally = lastCheckWasOver1Second && lastCheckWasUnder3Seconds
+    const exceededMaxTransitionsPerSecond =
+      this[transitionCount] - this[transitionCheckpointCount] >
+      maxTransitionsPerSecond
 
-    // If we're not doing any checks, just return early
-    if (!isEarlyDetection && !shouldCheckNormally) {
-      return true
-    }
-
-    const exceededMaxTransitionsPerSecond = transitionsSinceLastCheck > maxTransitionsPerSecond
-
-    if ((isEarlyDetection || (shouldCheckNormally && exceededMaxTransitionsPerSecond))) {
+    if (shouldCheck && exceededMaxTransitionsPerSecond) {
       return this.#fatalError(
         new Error(
-`Potential infinite loop detected: ${transitionsSinceLastCheck} transitions in the last ${timeSinceLastCheck}ms (max: ${maxTransitionsPerSecond}).\n\n` +
-          `This usually happens when states immediately transition to each other without any async operations or delays.\n\n` +
-          `To fix this:\n` +
-          `1. Add async operations or delays between transitions\n` +
-          `2. Check your state logic for immediate circular transitions\n` +
-          `3. If this is intentional, increase the limit:\n\n` +
-          `   new Mek({\n` +
-          `     options: {\n` +
-          `       maxTransitionsPerSecond: 10000 // or your desired limit\n` +
-          `     },\n` +
-          `     states: { ... }\n` +
-          `   })\n\n` +
-          `Total transitions: ${this[transitionCount]}`,
-        ),
+          `Potential infinite loop detected. You may have an infinite state transition loop happening. Total transitions: ${this[transitionCount]}, transitions in the last second: ${this[transitionCheckpointCount]}`
+        )
       )
-    } else if (shouldCheckNormally) {
+    } else if (shouldCheck) {
       this[transitionCheckpointCount] = this[transitionCount]
     }
 
@@ -783,7 +732,7 @@ private checkForInfiniteTransitionLoop() {
   public onStart(
     { callback, start }: OnStartStop = {
       start: false,
-    },
+    }
   ) {
     this.#awaitingStartPromise = true
 
@@ -802,7 +751,7 @@ private checkForInfiniteTransitionLoop() {
     { callback, stop, start }: OnStartStop = {
       stop: false,
       start: false,
-    },
+    }
   ) {
     this.#awaitingStopPromise = true
     const stopPromise = this.#onStopPromise.then(callback || (() => {}))
@@ -829,7 +778,7 @@ const machine = (machineDef: MechDefinitionInput) => {
 
 const state = (def: StateDefinitionInput) => new State(def)
 
-export const cycle = Object.assign((definition: LifeCycle) => definition, {
+export const cycle = Object.assign((definition) => definition, {
   decide: (condition: (args: FunctionArgs) => boolean, nextState: State | (() => State)) => ({
     if: condition,
     thenGoTo: typeof nextState === 'function' ? nextState : () => nextState,
@@ -856,9 +805,7 @@ type SignalDefinition = {
 }
 
 export const effect = Object.assign(
-  (
-    fn: (args: FunctionArgs) => any | Promise<any>,
-  ): EffectHandlerDefinition => ({
+  (fn: (args: FunctionArgs) => any | Promise<any>) => ({
     type: `EffectHandler`,
     effectHandler: (args: FunctionArgs) => fn(args),
   }),
@@ -866,8 +813,8 @@ export const effect = Object.assign(
     // lazy: (fn) => fn(),
     wait: (
       time?: number,
-      callback?: (...stuff: any) => void | Promise<void>,
-    ): EffectHandlerDefinition => ({
+      callback?: (...stuff: any) => void | Promise<void>
+    ) => ({
       type: `EffectHandler`,
       effectHandler: () =>
         new Promise((res) => {
@@ -882,7 +829,7 @@ export const effect = Object.assign(
     // respond: (signal, fn) => fn(),
     // request: (state, fn) => fn(),
     waitForState: (
-      stateFn: WaitForStateDefinition["handler"],
+      stateFn: WaitForStateDefinition["handler"]
     ): SignalDefinition => ({
       type: `WaitForState`,
       handler: stateFn,
@@ -890,12 +837,12 @@ export const effect = Object.assign(
     // waitForSequence: state => {},
     // waitForOrderedSequence: state => {},
     onTransition: (
-      handler?: OnTransitionDefinition["handler"],
+      handler?: OnTransitionDefinition["handler"]
     ): SignalDefinition => ({
       type: `OnTransitionDefinition`,
       handler: handler || ((args) => ({ value: args })),
     }),
-  },
+  }
 )
 
 export const create = {
