@@ -1,28 +1,9 @@
-import { create, cycle } from "./mek"
-import fs from "fs"
-import fsp from "fs/promises"
-import path from "path"
+import { create, cycle } from "./mek.js"
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
-const filesDir = path.join(__dirname, "files")
-const removeFilesDir = () => {
-  if (fs.existsSync(filesDir)) {
-    fs.rmSync(filesDir, { recursive: true })
-  }
-}
-const recreateFilesDir = () => {
-  removeFilesDir()
-
-  fs.mkdirSync(filesDir)
-}
-
-recreateFilesDir()
-
-const getFilePath = (name: number | string) =>
-  path.join(__dirname, `/files/${name}.txt`)
-const writeFile = (name: number | string) =>
-  fs.writeFileSync(getFilePath(name), `hello world`)
-const writeFileAsync = (name: number | string) =>
-  fsp.writeFile(getFilePath(name), `hello world`)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const iterationMax = 20_000
 const startTime = Date.now()
@@ -46,7 +27,7 @@ let StateOne = create.state(() => ({
       if: () => counter <= iterationMax - 1,
       run: () => {
         counter++
-        writeFile(counter)
+        let temp = 'hello world'; // In-memory operation
       },
       thenGoTo: StateOne,
     }),
@@ -61,66 +42,65 @@ machine
     const endTime = Date.now() - startTime
 
     console.log({
+      benchmark: "mek",
       transitionCount: counter,
       duration: `${endTime}ms`,
     })
-  })
-  .then(async () => {
-    recreateFilesDir()
-
-    const loopBench = async () => {
-      recreateFilesDir()
-
+    })
+  .finally(async () => {
+    const loopBench = () => {
       let count2 = 0
       const start2 = Date.now()
 
       while (count2 < iterationMax) {
         count2++
-        writeFile(count2)
+        let temp = 'hello world'; // In-memory operation
       }
-      removeFilesDir()
+      const duration2 = Date.now() - start2
       console.log({
-        whileLoopCount: count2,
-        endTime: `${Date.now() - start2}ms`,
+        benchmark: "whileLoop",
+        transitionCount: count2,
+        duration: `${duration2}ms`,
       })
-
-      recreateFilesDir()
 
       let asyncCount = 0
       const asyncStart = Date.now()
 
       while (asyncCount < iterationMax) {
         asyncCount++
-        await writeFileAsync(asyncCount)
+        let temp = 'hello world'; // In-memory operation
       }
-      removeFilesDir()
+      const asyncDuration = Date.now() - asyncStart
       console.log({
-        whileLoopCount: asyncCount,
-        endTime: `${Date.now() - asyncStart}ms`,
+        benchmark: "whileLoopAsync",
+        transitionCount: asyncCount,
+        duration: `${asyncDuration}ms`,
       })
     }
 
     let count = 0
     const start = Date.now()
 
-    async function yo() {
+    function yo() {
       if (count >= iterationMax) {
+        const recursiveDuration = Date.now() - start
         console.log({
-          recursiveFnCount: count,
-          endTime: `${Date.now() - start}ms`,
+          benchmark: "recursiveFn",
+          transitionCount: count,
+          duration: `${recursiveDuration}ms`,
         })
-        await loopBench()
+        loopBench()
         return
       }
       count++
-      writeFile(count)
+      let temp = 'hello world'; // In-memory operation
 
       if (count % 200 === 0) {
         setImmediate(() => yo())
       } else {
-        await yo()
+        yo()
       }
     }
 
-    await yo()
+    yo()
   })

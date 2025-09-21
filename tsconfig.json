@@ -1,15 +1,16 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
+    "module": "esnext",
     "jsx": "react",
     "outDir": "dist",
     "esModuleInterop": true,
     "lib": ["ES2021", "DOM"],
-    "target": "es6",
+    "target": "ES2015",
     "allowJs": true,
     "declarationMap": true,
     "declaration": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "moduleResolution": "node"
   },
   "include": ["src"],
   "exclude": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"],
