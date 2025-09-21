@@ -59,9 +59,31 @@ describe(`cycle`, () => {
     )
   })
 
-  it.todo(
-    `cycle.decide is a function that decides wether or not thenGoTo is called`
-  )
+it(`cycle.decide is a function that decides whether or not thenGoTo is called`, () => {
+    const machine = create.machine(() => ({
+      states: {
+        TestState,
+      },
+    }))
+
+    const TestState = create.state({
+      machine,
+      life: [],
+    })
+
+    const decision = cycle.decide(() => true, TestState)
+    
+    expect(decision).toEqual({
+      if: expect.any(Function),
+      thenGoTo: expect.any(Function),
+    })
+    
+    // Test that the condition function works
+    expect(decision.if({ context: {} })).toBe(true)
+    
+    // Test that the thenGoTo function returns the state
+    expect(decision.thenGoTo()).toBe(TestState)
+  })
 
   it.todo(`fails if no name is provided`)
 

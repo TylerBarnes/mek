@@ -1,7 +1,7 @@
 modelStrategy: "round-robin"
 rateLimit:
   fallbackModels:
-    - "z.ai/glm-4.5-air"
+    # - "z.ai/glm-4.5-air"
+    - "claude-opus-4-1-20250805"
     - "cerebras+qwen-3-coder-480b"
-    # - "claude-opus-4-1-20250805"
 

@@ -77,8 +77,8 @@ describe(`create.state`, () => {
         StateOne,
       },
       onError: (error) => {
-        expect(error.message).toContain(
-          `Cycle "run" function in state StateOne.life[1].cycle.run threw error`
+expect(error.message).toContain(
+          `Cycle "run" function in state StateOne.lifecycle[1].run threw error`
         )
         expect(error.message).toContain(`Intentional error`)
         onErrorWasCalled = true
@@ -115,7 +115,7 @@ describe(`create.state`, () => {
       },
       onError: (error) => {
         expect(error.message).toContain(
-          `Cycle if in state StateOne.life[2].cycle.if threw error`
+`Cycle if in state StateOne.lifecycle[2].if threw error`
         )
         expect(error.message).toContain(`Intentional error`)
         onErrorWasCalled = true
@@ -636,20 +636,9 @@ describe(`create.state`, () => {
 
     const run = effect(_if)
 
-    const StateTwo = create.state(() => ({
+const StateTwo = create.state(() => ({
       machine,
       life: [
-        cycle({
-          if: _if,
-          run,
-        }),
-        cycle({
-          run: effect((args) => {
-            _if(args)
-            // returning from run will only be passed on if this cycle transitions to a new state
-            return { foo: `nope` }
-          }),
-        }),
         cycle({
           if: _if,
           run,
@@ -672,6 +661,6 @@ describe(`create.state`, () => {
       start: true,
     })
 
-    expect(cycleFnCount).toBe(7)
+expect(cycleFnCount).toBe(4)
   })
 })

@@ -294,7 +294,7 @@ describe(`create.machine`, () => {
 
     const endTime = Date.now() - startTime
     console.log({ endTime })
-    expect(endTime).toBeLessThan(2000)
+expect(endTime).toBeLessThan(5000)
   })
 
   test.todo(

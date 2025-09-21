@@ -16,6 +16,7 @@ type EffectHandlerDefinition = {
 type LifeCycle = {
   name?: string
   if?: (args: FunctionArgs) => boolean
+  shouldGo?: (args: FunctionArgs) => boolean
   thenGoTo?: State
   run?: CycleFunction | EffectHandlerDefinition
 }
@@ -171,7 +172,7 @@ export class State {
 
     const cycle = this.definition.life[cycleIndex]
 
-    let runReturn: any = {}
+    let runReturn: any = context // Default to passing through the context
     let ifMet = false
 
     const ifExists = `if` in cycle
@@ -190,7 +191,7 @@ export class State {
       } catch (e) {
         return this.#fatalError(
           new Error(
-            `Cycle if in state ${this.name}.life[${cycleIndex}].cycle.if threw error:\n${e.stack}`,
+            `Cycle if in state ${this.name}.lifecycle[${cycleIndex}].if threw error:\n${e.stack}`,
           ),
         )
       }
@@ -227,12 +228,12 @@ export class State {
       )
     }
 
-    if (runExists) {
+if (runExists) {
       try {
         const effectHandler =
           `effectHandler` in cycle.run ? cycle.run.effectHandler : cycle.run
 
-        runReturn = effectHandler({ context }) || {}
+runReturn = effectHandler({ context }) || context // If run doesn't return anything, pass through context
       } catch (e) {
         return this.#fatalError(
           new Error(
@@ -242,7 +243,7 @@ export class State {
       }
     }
 
-    const thenGoToExists = `thenGoTo` in cycle
+const thenGoToExists = `thenGoTo` in cycle
 
     if (runExists && !thenGoToExists) {
       this.fastMaybePromiseCallback(runReturn, (resolvedValue) => {
@@ -252,6 +253,24 @@ export class State {
     }
 
     if (cycle.thenGoTo) {
+      // Check shouldGo condition if it exists
+      if (cycle.shouldGo) {
+        try {
+          const shouldGoResult = cycle.shouldGo({ context })
+          if (!shouldGoResult) {
+            // shouldGo returned false, don't transition
+            this.runNextLifeCycle(context)
+            return
+          }
+        } catch (e) {
+          return this.#fatalError(
+            new Error(
+              `Cycle "shouldGo" function in state ${this.name}.lifecycle[${cycleIndex}].shouldGo threw error:\n${e.stack}`,
+            ),
+          )
+        }
+      }
+
       this.nextState = cycle.thenGoTo
 
       // go to next state
@@ -763,6 +782,10 @@ const machine = (machineDef: MechDefinitionInput) => {
 const state = (def: StateDefinitionInput) => new State(def)
 
 export const cycle = Object.assign((definition: LifeCycle) => definition, {
+  decide: (condition: (args: FunctionArgs) => boolean, nextState: State | (() => State)) => ({
+    if: condition,
+    thenGoTo: typeof nextState === 'function' ? nextState : () => nextState,
+  }),
   //   onRequest: definition => definition,
   //   respond: definition => definition,
 })
