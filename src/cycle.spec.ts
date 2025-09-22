@@ -36,6 +36,7 @@ effect: {
   })
 
 test(`effect methods besides effect()/effect.wait() throw errors when passed to cycle.effect() or when called outside of cycle.effect()`, async () => {
+    // Test that passing effect.onTransition directly to cycle.effect throws an error
     const machine = create.machine(() => ({
       initial: () => machine.states.find(s => s.name === 'StateOne'),
       states: {
@@ -43,21 +44,23 @@ test(`effect methods besides effect()/effect.wait() throw errors when passed to 
           machine,
           life: [
             cycle({
-effect: effect.onTransition(({}) => ({ value: null })),
+              // This is invalid - effect.onTransition returns an EffectHandlerDefinition, not a function
+              // @ts-ignore - intentionally passing invalid type to test runtime error
+              effect: effect.onTransition(({}) => ({ value: null })),
             }),
           ],
         })),
       },
-    }))
+    }));
 
     await expect(
-      machine.onStop({
+      machine.onStart({
         start: true,
       })
     ).rejects.toThrow(
       `Life cycle effect must be a function or an effect function. State:`
-    )
-  })
+    );
+  });
 
 it(`cycle.decide is a function that decides whether or not thenGoTo is called`, () => {
     const machine = create.machine(() => ({

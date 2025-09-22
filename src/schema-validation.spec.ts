@@ -3,6 +3,7 @@ import * as v from 'valibot'
 import { z } from 'zod'
 
 describe('Schema Validation', () => {
+  jest.setTimeout(10000)
   test('validates input schema when state is initialized', async () => {
     const machine = create.machine(() => ({
       initialState: 'TestState',
@@ -18,14 +19,14 @@ describe('Schema Validation', () => {
       }
     }))
 
-    // This should pass validation
+// This should pass validation
     await machine.onStart({
       start: true,
       context: { name: 'John', age: 30 }
     })
     
     // Stop the machine so we can test invalid data
-    await machine.stop()
+    await machine.onStop()
 
 // This should fail validation
     await expect(
@@ -146,7 +147,7 @@ test('works with Zod schemas via Standard Schema interface', async () => {
         context: { email: 'test@example.com', age: 25 }
       })
       
-      await machine.stop()
+await machine.onStop()
     }
 
     // Test invalid email

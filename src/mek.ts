@@ -725,11 +725,9 @@ export class Mech {
   }
 
 [addState](state: State) {
-    if (this.initialized) {
-      return this.#fatalError(
-        new Error(
-          "Machine is already running. You cannot add a state after a machine has started.",
-        ),
+    if (this.status === 'running') {
+      throw new Error(
+        "Machine is already running. You cannot add a state after a machine has started.",
       )
     }
 
