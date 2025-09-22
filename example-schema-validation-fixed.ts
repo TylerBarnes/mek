@@ -31,7 +31,7 @@ const LoginState = create.state(() => ({
   input: LoginSchema,
   output: UserSchema,
   life: [
-    create.cycle({
+    {
       effect: async ({ context }) => {
         console.log("🔐 Login effect running with:", context)
         // Simulate login API call
@@ -46,7 +46,7 @@ const LoginState = create.state(() => ({
         return user
       },
       thenGoTo: {
-        state: DashboardState,
+        state: () => DashboardState,
         prepare: (output) => {
           // Transform user data to dashboard context
           console.log("🔄 Transforming data for dashboard:", output)
@@ -56,7 +56,7 @@ const LoginState = create.state(() => ({
           }
         },
       },
-    }),
+    },
   ],
 }))
 
@@ -67,15 +67,15 @@ const DashboardState = create.state(() => ({
     displayName: v.string(),
   }),
   life: [
-    create.cycle({
-      effect: create.effect(({ context }) => {
+    {
+      effect: ({ context }) => {
         console.log(
           `🎉 Welcome ${context.displayName} (User ID: ${context.userId})!`,
         )
         // Machine will stop after this
         return { success: true }
-      }),
-    }),
+      },
+    },
   ],
 }))
 

@@ -74,7 +74,7 @@ it(`throws an error if a state is dynamically defined after the machine starts`,
 it(`create.machine({ onError }) is called for errors thrown inside of state cycle effects`, async () => {
     let onErrorWasCalled = false
 
-const machine = create.machine(() => ({
+    const machine = create.machine(() => ({
       states: {
         StateOne: create.state({
           machine,
@@ -110,7 +110,7 @@ const machine = create.machine(() => ({
 it(`create.machine({ onError }) is called for errors thrown inside of state cycle ifs`, async () => {
     let onErrorWasCalled = false
 
-const machine = create.machine(() => ({
+    const machine = create.machine(() => ({
       states: {
         StateOne: create.state({
           machine,
@@ -132,7 +132,7 @@ const machine = create.machine(() => ({
       },
       onError: (error) => {
         expect(error.message).toContain(
-`Cycle if in state StateOne.lifecycle[2].if threw error`
+          `Cycle if in state StateOne.lifecycle[2].if threw error`
         )
         expect(error.message).toContain(`Intentional error`)
         onErrorWasCalled = true
@@ -199,33 +199,31 @@ const machine = create.machine(() => ({
     )
   })
 
-  it(`runs cycle effects when a state is entered`, async () => {
+it(`runs cycle effects when a state is entered`, async () => {
+    let cycleRan = false
+
     const machine = create.machine(() => ({
       states: {
-        TestState,
+        TestState: create.state({
+          machine,
+          life: [
+            cycle({
+              name: `Test cycle`,
+              effect: effect(() => {
+                return new Promise((res) => {
+                  setTimeout(() => {
+                    cycleRan = true
+                    res(null)
+                  }, 100)
+                })
+              }),
+            }),
+          ],
+        }),
       },
     }))
 
-    let cycleRan = false
-
-    const TestState = create.state({
-      machine,
-      life: [
-        cycle({
-          name: `Test cycle`,
-          effect: effect(() => {
-            return new Promise((res) => {
-              setTimeout(() => {
-                cycleRan = true
-                res(null)
-              }, 100)
-            })
-          }),
-        }),
-      ],
-    })
-
-await machine.onStart({
+    await machine.onStart({
       start: true,
     })
     await machine.onStop()
@@ -536,12 +534,17 @@ await infiniteLoopingMachine.onStart({
       states: {
         StateTwo: create.state(() => ({
           machine: machine2,
-          life: [],
+          life: [
+            // Keep machine2 running
+            cycle({
+              effect: effect.wait(10),
+            }),
+          ],
         })),
       },
     }))
 
-// Initialize machine2 first but don't wait for it to complete
+    // Initialize machine2 first but don't wait for it to complete
     machine2.onStart({ start: true })
     
     // Wait a bit for machine2 to actually start running
@@ -554,10 +557,6 @@ await infiniteLoopingMachine.onStart({
         StateOne: create.state(() => ({
           machine,
           life: [
-            cycle({
-              name: `wait so that machine2 is initialized. to simulate a machine that's already running when we attempt to transition to the wrong state`,
-              effect: effect(() => new Promise((res) => setTimeout(res))),
-            }),
             cycle({
               name: `go to state 2`,
               // This intentionally tries to transition to a state from machine2
@@ -575,6 +574,9 @@ await infiniteLoopingMachine.onStart({
         start: true,
       })
     ).rejects.toThrow(errFragment)
+    
+    // Clean up machine2
+    await machine2.onStop()
   })
 
 test(`data returned from effect: effect() is passed as args into the next state if thenGoTo is defined.`, async () => {
@@ -595,7 +597,7 @@ test(`data returned from effect: effect() is passed as args into the next state 
           life: [
             create.cycle({
               name: `Go to state 2`,
-              effect: create.effect(() => {
+              effect: effect(() => {
                 return value
               }),
               thenGoTo: () => machine.states.find(s => s.name === 'StateTwo'),

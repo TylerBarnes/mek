@@ -147,7 +147,7 @@ test('works with Zod schemas via Standard Schema interface', async () => {
         context: { email: 'test@example.com', age: 25 }
       })
       
-await machine.onStop()
+      await machine.onStop()
     }
 
     // Test invalid email

@@ -538,12 +538,18 @@ goToNextState(context: any = {}) {
     }
   }
 
-  #fatalError(error: Error) {
+  async #fatalError(error: Error) {
     if (!this.machine) {
       throw error
     }
 
-    return this.machine[fatalError](error)
+    const handled = await this.machine[fatalError](error)
+    if (handled === false) {
+      // Error was handled by onError, stop further execution
+      return false
+    }
+    // Error was not handled, will throw
+    return true
   }
 }
 
@@ -584,16 +590,16 @@ export class Mech {
   states: State[] = []
   definition: MechDefinition
 
-  #onStartPromise: Promise<undefined>
-  #resolveOnStart: typeof Promise.resolve
-  #rejectOnStart: typeof Promise.reject
+#onStartPromise: Promise<void>
+  #resolveOnStart: () => void
+  #rejectOnStart: (reason?: any) => void
 #awaitingStartPromise: boolean = false
   #pendingStartResolve: boolean = false
   #isInitialStateTransition: boolean = false
 
-  #onStopPromise: Promise<undefined>
-  #resolveOnStop: typeof Promise.resolve
-  #rejectOnStop: typeof Promise.reject
+#onStopPromise: Promise<void>
+  #resolveOnStop: () => void
+  #rejectOnStop: (reason?: any) => void
   #awaitingStopPromise: boolean = false
   #stopInterval: NodeJS.Timeout
 
@@ -640,7 +646,7 @@ export class Mech {
     }
   }
 
-  async stop() {
+async stop() {
     if (this.#awaitingStopPromise) {
       this.#awaitingStopPromise = false
       this.#resolveOnStop()
@@ -653,6 +659,8 @@ export class Mech {
 
     this.status = `stopped`
     this.initialized = false
+    
+    return this.#onStopPromise
   }
 
   private createLifeCyclePromises() {
@@ -691,10 +699,11 @@ export class Mech {
     }
   }
 
-  async #fatalError(error: Error) {
+async #fatalError(error: Error) {
     if (typeof this.definition?.onError === `function`) {
       await this.stop()
       await this.definition.onError(error)
+      // Return false to indicate that the error was handled
       return false
     }
 
@@ -927,10 +936,10 @@ public onStart(
       start: false,
     },
   ) {
-    // Create a new promise for this specific start event
-    const startPromise = new Promise((resolve, reject) => {
-      this.#resolveOnStart = resolve
-      this.#rejectOnStart = reject
+// Create a new promise for this specific start event
+    const startPromise = new Promise<void>((resolve, reject) => {
+      this.#resolveOnStart = () => resolve()
+      this.#rejectOnStart = (reason?: any) => reject(reason)
     })
     this.#onStartPromise = startPromise
     this.#awaitingStartPromise = true
@@ -946,25 +955,25 @@ public onStart(
 
   public onStop(
     { callback, stop, start, context }: OnStartStop = {
-      stop: false,
+      stop: true,
       start: false,
     },
   ) {
     this.#awaitingStopPromise = true
     
-    // Create a new promise for this specific stop event
-    const stopPromise = new Promise((resolve, reject) => {
-      this.#resolveOnStop = resolve
-      this.#rejectOnStop = reject
+// Create a new promise for this specific stop event
+    const stopPromise = new Promise<void>((resolve, reject) => {
+      this.#resolveOnStop = () => resolve()
+      this.#rejectOnStop = (reason?: any) => reject(reason)
     })
     this.#onStopPromise = stopPromise
 
     if (start) {
-      // Reset the start promise too since we're restarting
+// Reset the start promise too since we're restarting
       this.#awaitingStartPromise = true
-      const startPromise = new Promise((resolve, reject) => {
-        this.#resolveOnStart = resolve
-        this.#rejectOnStart = reject
+      const startPromise = new Promise<void>((resolve, reject) => {
+        this.#resolveOnStart = () => resolve()
+        this.#rejectOnStart = (reason?: any) => reject(reason)
       })
       this.#onStartPromise = startPromise
       
@@ -1016,6 +1025,7 @@ function state<T extends StateDefinitionInput<any, any>>(
   return new State(def) as InferStateDefinition<T>
 }
 
+// The cycle wrapper is optional - you can use plain objects in life array for better type inference
 export const cycle = Object.assign(<T>(definition: T) => definition, {
   decide: (
     condition: (args: FunctionArgs) => boolean,
