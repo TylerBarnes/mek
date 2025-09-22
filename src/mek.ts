@@ -1037,7 +1037,7 @@ export const cycle = Object.assign(<T>(definition: T) => definition, {
 })
 
 type ThenGoToDefinition<TOutput = any, TNextInput = any> = {
-  state: State<TNextInput>
+  state: State<TNextInput> | (() => State<TNextInput>)
   prepare?: (output: TOutput) => TNextInput | Promise<TNextInput>
 }
 
