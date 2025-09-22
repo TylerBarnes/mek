@@ -77,7 +77,6 @@ const LoginSchema = v.object({
 });
 ```
 ```
-```
 
 const UserSchema = v.object({
   id: v.string(),
@@ -110,7 +109,6 @@ const DashboardState = create.state({
     }
   })
 });
-```
 ```
 
 ### Data Mapping Between States
@@ -206,10 +204,6 @@ const machine = create.machine({
     return 'error';
   }
 });
-```
-```
-```
-
 ```
 
 ### Development Mode Features

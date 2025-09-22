@@ -51,7 +51,7 @@ describe(`create.state`, () => {
             cycle({
               name: `only cycle`,
               // to simulate an actual machine running where time passes
-              run: effect.wait(0.1),
+effect: effect.wait(0.1),
             }),
           ],
         })
@@ -78,7 +78,7 @@ describe(`create.state`, () => {
       },
       onError: (error) => {
 expect(error.message).toContain(
-          `Cycle "run" function in state StateOne.lifecycle[1].run threw error`
+          `Cycle "effect" function in state StateOne.lifecycle[1].effect threw error`
         )
         expect(error.message).toContain(`Intentional error`)
         onErrorWasCalled = true
@@ -93,7 +93,7 @@ expect(error.message).toContain(
         }),
         cycle({
           name: `cycle throws an error in its effect`,
-          run: effect(() => {
+          effect: effect(() => {
             throw new Error(`Intentional error`)
           }),
         }),
@@ -213,7 +213,7 @@ expect(error.message).toContain(
       life: [
         cycle({
           name: `Test cycle`,
-          run: effect(() => {
+          effect: effect(() => {
             return new Promise((res) => {
               setTimeout(() => {
                 cycleRan = true
@@ -233,16 +233,38 @@ expect(error.message).toContain(
   })
 
   it(`transitions between multiple states using cycle({ thenGoTo })`, async () => {
-    const machine = create.machine(() => ({
+const machine = create.machine(() => ({
       states: {
-        StateOne,
-        StateTwo,
-        StateThree,
+        StateOne: create.state(() => ({
+          machine,
+          life: [
+            cycle({
+              name: `go to state 2`,
+              effect: effect(() => onTransition(`StateOne`)),
+              thenGoTo: () => machine.states.find(s => s.name === 'StateTwo'),
+            }),
+          ],
+        })),
+        StateTwo: create.state(() => ({
+          machine,
+          life: [
+            cycle({
+              name: `go to state 3`,
+              effect: effect(() => onTransition(`StateTwo`)),
+              thenGoTo: () => machine.states.find(s => s.name === 'StateThree'),
+            }),
+          ],
+        })),
+        StateThree: create.state(() => ({
+          machine,
+          life: [
+            cycle({
+              effect: effect(() => onTransition(`StateThree`)),
+              name: `finish`,
+            }),
+          ],
+        })),
       },
-
-      // signals: {
-      //   onTransition,
-      // },
     }))
 
     // let onTransition = machine.signal(effect.onTransition())
@@ -307,37 +329,6 @@ expect(error.message).toContain(
       }
     }
 
-    const StateOne = create.state(() => ({
-      machine,
-      life: [
-        cycle({
-          name: `go to state 2`,
-          run: effect(() => onTransition(`StateOne`)),
-          thenGoTo: StateTwo,
-        }),
-      ],
-    }))
-
-    const StateTwo = create.state(() => ({
-      machine,
-      life: [
-        cycle({
-          name: `go to state 3`,
-          run: effect(() => onTransition(`StateTwo`)),
-          thenGoTo: StateThree,
-        }),
-      ],
-    }))
-
-    const StateThree = create.state({
-      machine,
-      life: [
-        cycle({
-          run: effect(() => onTransition(`StateThree`)),
-          name: `finish`,
-        }),
-      ],
-    })
 
     await machine.onStop({
       start: true,
@@ -347,76 +338,63 @@ expect(error.message).toContain(
   })
 
   test(`state cycle ifs determine if a cycle will run or not`, async () => {
-    const machine = create.machine(() => ({
-      states: {
-        StateOne,
-        StateTwo,
-        StateNever,
-      },
-    }))
-
     let falseConditionFlag = true
     let trueConditionFlag = false
     let secondTrueConditionFlag = false
 
-    const StateOne = create.state(() => ({
-      machine,
-      life: [
-        cycle({
-          name: `never`,
-          if: () => false,
-          run: effect(() => (falseConditionFlag = true)),
-          thenGoTo: StateNever,
-        }),
-        cycle({
-          name: `go to state 2`,
-          if: () => true,
-          run: effect(() => {
-            falseConditionFlag = false
-            trueConditionFlag = false
-          }),
-          thenGoTo: StateTwo,
-        }),
-      ],
+    const machine = create.machine(() => ({
+      states: {
+        StateOne: create.state(() => ({
+          machine,
+          life: [
+            cycle({
+              name: `never`,
+              if: () => false,
+              effect: effect(() => (falseConditionFlag = true)),
+              thenGoTo: () => machine.states.find(s => s.name === 'StateNever'),
+            }),
+            cycle({
+              name: `go to state 2`,
+              if: () => true,
+              effect: effect(() => {
+                falseConditionFlag = false
+                trueConditionFlag = false
+              }),
+              thenGoTo: () => machine.states.find(s => s.name === 'StateTwo'),
+            }),
+          ],
+        })),
+        StateTwo: create.state(() => ({
+          machine,
+          life: [
+            cycle({
+              name: `first if`,
+              if: () => true,
+              effect: effect(() => {
+                trueConditionFlag = true
+              }),
+            }),
+            cycle({
+              name: `first if`,
+              if: () => true,
+              effect: effect(() => {
+                secondTrueConditionFlag = true
+              }),
+            }),
+            cycle({
+              name: `never`,
+              if: () => false,
+              thenGoTo: () => machine.states.find(s => s.name === 'StateNever'),
+            }),
+          ],
+        })),
+        StateNever: create.state(() => ({
+          machine,
+          life: [],
+        })),
+      },
     }))
 
-    const StateTwo = create.state(() => ({
-      machine,
-      life: [
-        cycle({
-          name: `first if`,
-          if: () => true,
-          run: effect(() => {
-            trueConditionFlag = true
-          }),
-        }),
-        cycle({
-          name: `first if`,
-          if: () => true,
-          run: effect(() => {
-            secondTrueConditionFlag = true
-          }),
-        }),
-        cycle({
-          name: `never`,
-          if: () => false,
-          thenGoTo: StateNever,
-        }),
-      ],
-    }))
-
-    const StateNever = create.state({
-      machine,
-      life: [
-        cycle({
-          name: `should never get here because the other states wont transition here`,
-          if: () => true,
-          run: effect(() => {
-            falseConditionFlag = true
-          }),
-        }),
-      ],
-    })
 
     await machine.onStop({
       start: true,
@@ -437,30 +415,28 @@ expect(error.message).toContain(
       timeoutTime = Date.now() - startTime
     })
 
+let counter = 0
+    const maxLoops = 100000
+
     const machine = create.machine(() => ({
       states: {
-        StateOne,
+        StateOne: create.state(() => ({
+          machine,
+          life: [
+            cycle({
+              name: `only cycle`,
+              if: () => counter < maxLoops,
+              effect: effect(() => {
+                counter++
+              }),
+              thenGoTo: () => machine.states.find(s => s.name === 'StateOne'),
+            }),
+          ],
+        })),
       },
       options: {
         maxTransitionsPerSecond: 100000, // Allow high-speed transitions for this test
       },
-    }))
-
-    let counter = 0
-    const maxLoops = 100000
-
-    let StateOne = create.state(() => ({
-      machine,
-      life: [
-        cycle({
-          name: `only cycle`,
-          if: () => counter < maxLoops,
-          run: effect(() => {
-            counter++
-          }),
-          thenGoTo: StateOne,
-        }),
-      ],
     }))
 
     await machine.onStop({
@@ -477,28 +453,25 @@ expect(error.message).toContain(
   })
 
   test(`a state cannot infinitely transition to itself`, async () => {
+let transitionCount = 0
+
     const infiniteLoopingMachine = create.machine(() => ({
       onError: (error) => {
-expect(error.message).toContain(`Potential infinite loop detected`)
+        expect(error.message).toContain(`Potential infinite loop detected`)
       },
 
-      states: { InfiniteState },
-      // signals: {
-      //   onTransition,
-      // },
-    }))
-
-    let transitionCount = 0
-
-    const InfiniteState = create.state(() => ({
-      machine: infiniteLoopingMachine,
-      life: [
-        cycle({
-          name: `infinitely transition back into the same state`,
-          run: effect(() => transitionCount++),
-          thenGoTo: InfiniteState,
-        }),
-      ],
+      states: {
+        InfiniteState: create.state(() => ({
+          machine: infiniteLoopingMachine,
+          life: [
+            cycle({
+              name: `infinitely transition back into the same state`,
+              effect: effect(() => transitionCount++),
+              thenGoTo: () => infiniteLoopingMachine.states.find(s => s.name === 'InfiniteState'),
+            }),
+          ],
+        })),
+      },
     }))
 
     // const onTransition = infiniteLoopingMachine.signal(effect.onTransition())
@@ -545,85 +518,54 @@ expect(error.message).toContain(`Potential infinite loop detected`)
   })
 
   it(`errors when thenGoTo returns a state that isn't defined on the machine`, async () => {
-    const machine = create.machine(() => ({
-      initial: StateTwo,
-      states: {
-        StateOne,
-      },
-    }))
-
+    // First create machine2 so we can reference its state
     const machine2 = create.machine(() => ({
-      initial: StateTwo,
+      initial: () => machine2.states.find(s => s.name === 'StateTwo'),
       states: {
-        StateTwo,
+        StateTwo: create.state(() => ({
+          machine: machine2,
+          life: [],
+        })),
       },
     }))
 
-    const StateOne = create.state(() => ({
-      machine,
-      life: [
-        cycle({
-          name: `wait so that machine2 is initialized. to simulate a machine that's already running when we attempt to transition to the wrong state`,
-          run: effect(() => new Promise((res) => setTimeout(res))),
-        }),
-        cycle({
-          name: `go to state 2`,
-          thenGoTo: StateTwo,
-        }),
-      ],
-    }))
+    // Initialize machine2 first
+    await machine2.start()
 
-    const StateTwo = create.state(() => ({
-      machine: machine2,
-      life: [
-        cycle({
-          name: `go to state 1`,
-          thenGoTo: StateOne,
-        }),
-      ],
+    // Now create machine that will try to transition to machine2's StateTwo
+    const machine = create.machine(() => ({
+      initial: () => machine.states.find(s => s.name === 'StateOne'),
+      states: {
+        StateOne: create.state(() => ({
+          machine,
+          life: [
+            cycle({
+              name: `wait so that machine2 is initialized. to simulate a machine that's already running when we attempt to transition to the wrong state`,
+              effect: effect(() => new Promise((res) => setTimeout(res))),
+            }),
+            cycle({
+              name: `go to state 2`,
+              // This intentionally tries to transition to a state from machine2
+              thenGoTo: () => machine2.states.find(s => s.name === 'StateTwo'),
+            }),
+          ],
+        })),
+      },
     }))
 
     const errFragment = `attempted to transition to a state that was defined on a different machine`
 
-    await Promise.all([
-      expect(
-        machine.onStop({
-          start: true,
-        })
-      ).rejects.toThrow(errFragment),
-      expect(
-        machine2.onStop({
-          start: true,
-        })
-      ).rejects.toThrow(errFragment),
-    ])
+    await expect(
+      machine.onStop({
+        start: true,
+      })
+    ).rejects.toThrow(errFragment)
   })
 
-  test(`data returned from run: effect() is passed as args into the next state if thenGoTo is defined.`, async () => {
-    const machine = create.machine(() => ({
-      states: {
-        StateOne,
-        StateTwo,
-        Done,
-      },
-    }))
-
+test(`data returned from effect: effect() is passed as args into the next state if thenGoTo is defined.`, async () => {
     const value = {
       foo: `ya`,
     }
-
-    const StateOne = create.state(() => ({
-      machine,
-      life: [
-        cycle({
-          name: `Go to state 2`,
-          run: effect(() => {
-            return value
-          }),
-          thenGoTo: StateTwo,
-        }),
-      ],
-    }))
 
     const assertValIsEqual = (val: typeof value) => {
       expect(val).toBe(value)
@@ -637,33 +579,49 @@ expect(error.message).toContain(`Potential infinite loop detected`)
       return context
     }
 
-    const run = effect(_if)
+    const effectHandler = effect(_if)
 
-const StateTwo = create.state(() => ({
-      machine,
-      life: [
-        cycle({
-          if: _if,
-          run,
-          thenGoTo: Done,
-        }),
-      ],
+    const machine = create.machine(() => ({
+      initial: () => machine.states.find(s => s.name === 'StateOne'),
+      states: {
+        StateOne: create.state(() => ({
+          machine,
+          life: [
+            cycle({
+              name: `Go to state 2`,
+              effect: effect(() => {
+                return value
+              }),
+              thenGoTo: () => machine.states.find(s => s.name === 'StateTwo'),
+            }),
+          ],
+        })),
+        StateTwo: create.state(() => ({
+          machine,
+          life: [
+            cycle({
+              if: _if,
+              effect: effectHandler,
+              thenGoTo: () => machine.states.find(s => s.name === 'Done'),
+            }),
+          ],
+        })),
+        Done: create.state(() => ({
+          machine,
+          life: [
+            cycle({
+              if: _if,
+              effect: effectHandler,
+            }),
+          ],
+        })),
+      },
     }))
-
-    const Done = create.state({
-      machine,
-      life: [
-        cycle({
-          if: _if,
-          run,
-        }),
-      ],
-    })
 
     await machine.onStop({
       start: true,
     })
 
-expect(cycleFnCount).toBe(4)
+    expect(cycleFnCount).toBe(4)
   })
 })

@@ -4,15 +4,15 @@
     "jsx": "react",
     "outDir": "dist",
     "esModuleInterop": true,
-    "lib": ["ES2021", "DOM"],
-    "target": "ES2015",
+    "lib": ["ES2022", "DOM"],
+    "target": "ES2022",
     "allowJs": true,
     "declarationMap": true,
     "declaration": true,
     "sourceMap": true,
     "moduleResolution": "node"
   },
-  "include": ["src"],
+  "include": ["src", "example-schema-validation-fixed.ts", "simple-type-inference-test.ts", "test-type-inference.ts"],
   "exclude": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"],
   "ts-node": {
     "swc": true

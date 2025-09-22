@@ -3,39 +3,65 @@ const addName = Symbol("addName")
 const reset = Symbol("reset")
 const initializeState = Symbol("initializeState")
 const fatalError = Symbol("fatalError")
+const resolveStartIfPending = Symbol("resolveStartIfPending")
 const getMachine = Symbol(`getMachine`)
 const lastTransitionCountCheckTime = Symbol(`lastTransitionCountCheckTime`)
 const transitionCheckpointCount = Symbol(`transitionCheckpointCount`)
 const transitionCount = Symbol(`transitionCount`)
 
-type CycleFunction = (args: FunctionArgs) => Promise<any>
-type EffectHandlerDefinition = {
+// Standard Schema types
+import type {
+  StandardSchemaV1,
+  StandardSchemaV1 as StandardSchema,
+} from "@standard-schema/spec"
+
+type Schema<TInput = unknown, TOutput = TInput> =
+  | StandardSchema<TInput, TOutput>
+  | null
+  | undefined
+
+type CycleFunction<TContext = any, TOutput = any> = (
+  args: FunctionArgs<TContext>,
+) => Promise<TOutput | void> | TOutput | void
+type EffectHandlerDefinition<TContext = any, TOutput = any> = {
   type: `EffectHandler`
-  effectHandler: CycleFunction
+  effectHandler: CycleFunction<TContext, TOutput>
 }
-type LifeCycle = {
+type LifeCycle<TContext = any, TOutput = any, TNextInput = any> = {
   name?: string
-  if?: (args: FunctionArgs) => boolean
-  shouldGo?: (args: FunctionArgs) => boolean
-  thenGoTo?: () => State | State
-  run?: CycleFunction | EffectHandlerDefinition
+  if?: (args: FunctionArgs<TContext>) => boolean
+  shouldGo?: (args: FunctionArgs<TContext>) => boolean
+  thenGoTo?:
+    | (() => State<any>)
+    | State<any>
+    | ThenGoToDefinition<TOutput, TNextInput>
+  effect?: CycleFunction<TContext, TOutput> | EffectHandlerDefinition<TContext, TOutput>
 }
-type LifeCycleList = Array<LifeCycle>
-type InternalLifeCycleList = Array<
-  LifeCycle & {
+type LifeCycleList<TContext = any, TOutput = any> = Array<
+  LifeCycle<TContext, TOutput, any>
+>
+type InternalLifeCycleList<TContext = any, TOutput = any> = Array<
+  LifeCycle<TContext, TOutput, any> & {
     ran?: boolean
   }
 >
-type StateDefinition = { machine: Mech; life?: LifeCycleList }
-type StateDefinitionInput = (() => StateDefinition) | StateDefinition
+type StateDefinition<TInput = any, TOutput = any> = {
+  machine: Mech
+  life?: LifeCycleList<TInput, TOutput>
+  input?: Schema<unknown, TInput>
+  output?: Schema<TOutput, TOutput>
+}
+type StateDefinitionInput<TInput = any, TOutput = any> =
+  | (() => StateDefinition<TInput, TOutput>)
+  | StateDefinition<TInput, TOutput>
 
-type FunctionArgs = { context: any }
+type FunctionArgs<TContext = any> = { context: TContext }
 
 let globalCycleCounter = 0
 
-export class State {
+export class State<TInput = any, TOutput = any> {
   machine: Mech
-  definition: StateDefinition
+  definition: StateDefinition<TInput, TOutput>
   name: string
 
   nextState: State
@@ -43,14 +69,14 @@ export class State {
   initialized = false
   done = false
 
-  lifeCycles: InternalLifeCycleList
+  lifeCycles: InternalLifeCycleList<TInput, TOutput>
   currentCycleIndex: number = 0
 
-  context: any = {}
+  context: TInput = {} as TInput
 
-  initialStateDefinition: StateDefinitionInput
+  initialStateDefinition: StateDefinitionInput<TInput, TOutput>
 
-  constructor(definition: StateDefinitionInput) {
+constructor(definition: StateDefinitionInput<TInput, TOutput>) {
     const defIsFn = typeof definition === `function`
 
     if (!defIsFn) {
@@ -74,13 +100,13 @@ export class State {
     if (machine.status === `running`) {
       return machine[fatalError](
         new Error(
-          `Machine is already running. You cannot add a state after a machine has started.`
-        )
+          `Machine is already running. You cannot add a state after a machine has started.`,
+        ),
       )
     }
   }
 
-  private setStateDefinition(definition: StateDefinition) {
+  private setStateDefinition(definition: StateDefinition<TInput, TOutput>) {
     this.definition = definition
 
     if (
@@ -88,7 +114,7 @@ export class State {
       typeof this.definition.machine === `undefined`
     ) {
       throw new Error(
-        `State definition "machine" property is undefined.\nTo fix this you likely need to return your state definition from a function instead of as an object, because your machine isn't defined yet when your state is initialized.\n\nExample:\n\nconst state = new State(() => ({\n  machine: myMachine,\n  life: [\n    // life cycles\n  ]\n}))`
+        `State definition "machine" property is undefined.\nTo fix this you likely need to return your state definition from a function instead of as an object, because your machine isn't defined yet when your state is initialized.\n\nExample:\n\nconst state = new State(() => ({\n  machine: myMachine,\n  life: [\n    // life cycles\n  ]\n}))`,
       )
     }
 
@@ -102,20 +128,16 @@ export class State {
       if (typeof this.initialStateDefinition !== `function`) {
         return this.#fatalError(
           new Error(
-            `State "${stateName}" does not have a state definition. @TODO add docs link`
-          )
+            `State "${stateName}" does not have a state definition. @TODO add docs link`,
+          ),
         )
       }
 
-      if (typeof this.initialStateDefinition !== `function`) {
-        return this.#fatalError(
-          new Error(
-            `Late initialized state did not have an initial state definition set. This is a bug.`
-          )
-        )
-      }
-
-      this.setStateDefinition(this.initialStateDefinition())
+      this.setStateDefinition(
+        (
+          this.initialStateDefinition as () => StateDefinition<TInput, TOutput>
+        )(),
+      )
     }
   }
 
@@ -136,28 +158,123 @@ export class State {
     this.name = name
   }
 
-  [reset]() {
+[reset]() {
     if (!this.initialized) return
 
     this.initialized = false
     this.done = false
     this.nextState = null
+    this.context = {} as TInput
+    this.currentCycleIndex = 0
+  }
+
+async validateInput(data: any): Promise<TInput> {
+    if (!this.definition.input) {
+      return data as TInput
+    }
+
+    const schema = this.definition.input
+    if ("~standard" in schema && schema["~standard"]) {
+      try {
+        const result = await schema["~standard"].validate(data)
+        // Check if validation failed
+        // Valibot: { typed: false, issues: [...] } for failures
+        // Zod: { issues: [...] } for failures (no typed property)
+        if (("typed" in result && result.typed === false) || 
+            (!("typed" in result) && "issues" in result && result.issues)) {
+          const error = new Error(
+            `Schema validation failed for state "${this.name}" input`,
+          )
+          ;(error as any).type = "SchemaValidationError"
+          ;(error as any).data = data
+          ;(error as any).issues = result.issues
+          throw error
+        }
+        // Validation succeeded, return the typed value
+        // TypeScript needs explicit type assertion here
+        return (result as StandardSchemaV1.SuccessResult<TInput>).value
+      } catch (e) {
+        if ((e as any).type === "SchemaValidationError") {
+          throw e
+        }
+        const error = new Error(
+          `Schema validation error for state "${this.name}" input: ${e.message}`,
+        )
+        ;(error as any).type = "SchemaValidationError"
+        ;(error as any).data = data
+        throw error
+      }
+    }
+    return data as TInput
+  }
+
+async validateOutput(data: any): Promise<TOutput> {
+    if (!this.definition.output) {
+      return data as TOutput
+    }
+
+    const schema = this.definition.output
+    if ("~standard" in schema && schema["~standard"]) {
+      try {
+        const result = await schema["~standard"].validate(data)
+        // Check if validation failed
+        // Valibot: { typed: false, issues: [...] } for failures
+        // Zod: { issues: [...] } for failures (no typed property)
+        if (("typed" in result && result.typed === false) || 
+            (!("typed" in result) && "issues" in result && result.issues)) {
+          const error = new Error(
+            `Schema validation failed for state "${this.name}" output`,
+          )
+          ;(error as any).type = "SchemaValidationError"
+          ;(error as any).data = data
+          ;(error as any).issues = result.issues
+          throw error
+        }
+        // Validation succeeded, return the typed value
+        // TypeScript needs explicit type assertion here
+        return (result as StandardSchemaV1.SuccessResult<TOutput>).value
+      } catch (e) {
+        if ((e as any).type === "SchemaValidationError") {
+          throw e
+        }
+        const error = new Error(
+          `Schema validation error for state "${this.name}" output: ${e.message}`,
+        )
+        ;(error as any).type = "SchemaValidationError"
+        ;(error as any).data = data
+        throw error
+      }
+    }
+    return data as TOutput
   }
 
   [initializeState]({ context }: FunctionArgs) {
     if (this.initialized) {
       return this.#fatalError(
         new Error(
-          `State ${this.name} has already been initialized. States can only be initialized one time. Either this is a bug or you're abusing the public api :)`
-        )
+          `State ${this.name} has already been initialized. States can only be initialized one time. Either this is a bug or you're abusing the public api :)`,
+        ),
       )
     } else {
       this.initialized = true
     }
 
-    this.context = context || {}
+    // Validate input data
+    this.fastMaybePromiseCallback(
+      this.validateInput(context),
+      (validatedContext) => {
+        this.context = validatedContext || ({} as TInput)
 
-    this.runLifeCycles()
+        // Don't resolve onStart here - wait until the state completes
+        // const machine = this[getMachine]()
+        // if (machine) {
+        //   machine[resolveStartIfPending]()
+        // }
+
+        this.runLifeCycles()
+      },
+      `Schema validation for state "${this.name}" input`,
+    )
   }
 
   runNextLifeCycle() {
@@ -172,7 +289,7 @@ export class State {
 
     const context = this.context
 
-let runReturn: any = context // Default to passing through the context
+    let effectReturn: any = context // Default to passing through the context
     let ifMet = false
 
     const ifExists = `if` in cycle
@@ -180,8 +297,8 @@ let runReturn: any = context // Default to passing through the context
     if (ifExists && typeof cycle.if !== `function`) {
       return this.#fatalError(
         new Error(
-          `Life cycle if must be a function. State: ${this.name}. @TODO add docs link`
-        )
+          `Life cycle if must be a function. State: ${this.name}. @TODO add docs link`,
+        ),
       )
     }
 
@@ -191,8 +308,8 @@ let runReturn: any = context // Default to passing through the context
       } catch (e) {
         return this.#fatalError(
           new Error(
-            `Cycle if in state ${this.name}.lifecycle[${cycleIndex}].if threw error:\n${e.stack}`
-          )
+            `Cycle if in state ${this.name}.lifecycle[${cycleIndex}].if threw error:\n${e.stack}`,
+          ),
         )
       }
     }
@@ -202,88 +319,127 @@ let runReturn: any = context // Default to passing through the context
       return
     }
 
-    const runExists = `run` in cycle
+    const effectExists = `effect` in cycle
 
     if (
-      runExists &&
-      typeof cycle.run !== `function` &&
-      (typeof cycle.run?.effectHandler !== `function` ||
-        cycle.run?.type !== `EffectHandler`)
+      effectExists &&
+      typeof cycle.effect !== `function` &&
+      (typeof cycle.effect?.effectHandler !== `function` ||
+        cycle.effect?.type !== `EffectHandler`)
     ) {
       return this.#fatalError(
         new Error(
-          `Life cycle run must be a function or an effect function. State: ${this.name}. @TODO add docs link`
-        )
+          `Life cycle effect must be a function or an effect function. State: ${this.name}. @TODO add docs link`,
+        ),
       )
     }
 
-    if (runExists) {
+    if (effectExists) {
       try {
         const effectHandler =
-          `effectHandler` in cycle.run ? cycle.run.effectHandler : cycle.run
+          `effectHandler` in cycle.effect
+            ? cycle.effect.effectHandler
+            : cycle.effect
 
-runReturn = effectHandler({ context }) || context // If run doesn't return anything, pass through context
+        effectReturn = effectHandler({ context }) || context // If effect doesn't return anything, pass through context
       } catch (e) {
         return this.#fatalError(
           new Error(
-`Cycle "run" function in state ${this.name}.lifecycle[${cycleIndex}].run threw error:\n${e.stack}`
-          )
+            `Cycle "effect" function in state ${this.name}.lifecycle[${cycleIndex}].effect threw error:\n${e.stack}`,
+          ),
         )
       }
     }
 
     const thenGoToExists = `thenGoTo` in cycle
 
-    if (runExists && !thenGoToExists) {
-      this.fastMaybePromiseCallback(runReturn, (_resolvedValue) => {
+    if (effectExists && !thenGoToExists) {
+      this.fastMaybePromiseCallback(effectReturn, (_resolvedValue) => {
         this.runNextLifeCycle()
       })
       return
     }
 
-    let thenGoTo: State
+    // Handle the new thenGoTo structure with prepare function
+    let thenGoTo:
+      | State
+      | (() => State)
+      | { state: State | (() => State); prepare?: (output: any) => any }
+    let prepareFn: ((output: any) => any) | undefined
 
     try {
-      thenGoTo =
-        typeof cycle.thenGoTo === `function` ? cycle.thenGoTo() : cycle.thenGoTo
+      thenGoTo = cycle.thenGoTo
+      if (typeof thenGoTo === "object" && "state" in thenGoTo) {
+        prepareFn = thenGoTo.prepare
+        thenGoTo = thenGoTo.state
+      }
+
+      const resolvedThenGoTo =
+        typeof thenGoTo === `function` ? thenGoTo() : thenGoTo
+
+      if (resolvedThenGoTo) {
+        // Check shouldGo condition if it exists
+        if (cycle.shouldGo) {
+          try {
+            const shouldGoResult = cycle.shouldGo({ context })
+            if (!shouldGoResult) {
+              // shouldGo returned false, don't transition
+              // Use setImmediate to avoid deep synchronous recursion
+              setImmediate(() => {
+                this.context = context
+                this.runNextLifeCycle()
+              })
+              return
+            }
+          } catch (e) {
+            return this.#fatalError(
+              new Error(
+                `Cycle "shouldGo" function in state ${this.name}.lifecycle[${cycleIndex}].shouldGo threw error:\n${e.stack}`,
+              ),
+            )
+          }
+        }
+
+        this.nextState = resolvedThenGoTo
+
+// Validate effect output and apply prepare function if needed
+        this.fastMaybePromiseCallback(
+          effectReturn,
+          (resolvedEffectValue) => {
+            this.fastMaybePromiseCallback(
+              this.validateOutput(resolvedEffectValue),
+              (validatedOutput) => {
+                let nextStateContext = validatedOutput
+
+                // Apply prepare function if it exists
+                if (prepareFn) {
+                  try {
+                    nextStateContext = prepareFn(validatedOutput)
+                  } catch (e) {
+                    return this.#fatalError(
+                      new Error(
+                        `Cycle "prepare" function in state ${this.name}.lifecycle[${cycleIndex}].thenGoTo.prepare threw error:\n${e.stack}`,
+                      ),
+                    )
+                  }
+                }
+
+                this.goToNextState(nextStateContext)
+              },
+              `Schema validation for state "${this.name}" output`,
+            )
+          },
+          // No special error context needed for the outer call since it's just resolving the effect return
+          undefined,
+        )
+        return
+      }
     } catch (e) {
       return this.#fatalError(
         new Error(
-          `Cycle "thenGoTo" function in state ${this.name}.life[${cycleIndex}].cycle.thenGoTo threw error:\n${e.stack}`
-        )
+          `Cycle "thenGoTo" function in state ${this.name}.life[${cycleIndex}].cycle.thenGoTo threw error:\n${e.stack}`,
+        ),
       )
-    }
-
-if (thenGoTo) {
-      // Check shouldGo condition if it exists
-      if (cycle.shouldGo) {
-        try {
-          const shouldGoResult = cycle.shouldGo({ context })
-          if (!shouldGoResult) {
-            // shouldGo returned false, don't transition
-            // Use setImmediate to avoid deep synchronous recursion
-            setImmediate(() => {
-              this.context = context
-              this.runNextLifeCycle()
-            })
-            return
-          }
-        } catch (e) {
-          return this.#fatalError(
-            new Error(
-              `Cycle "shouldGo" function in state ${this.name}.lifecycle[${cycleIndex}].shouldGo threw error:\n${e.stack}`,
-            ),
-          )
-        }
-      }
-      
-      this.nextState = thenGoTo
-
-      // go to next state
-      this.fastMaybePromiseCallback(runReturn, (resolvedValue) => {
-        this.goToNextState(resolvedValue)
-      })
-      return
     }
 
     this.runNextLifeCycle()
@@ -293,8 +449,8 @@ if (thenGoTo) {
     if (this.done) {
       this.#fatalError(
         new Error(
-          `State ${this.name} has already run. Cannot run life cycles again.`
-        )
+          `State ${this.name} has already run. Cannot run life cycles again.`,
+        ),
       )
     }
 
@@ -316,7 +472,11 @@ if (thenGoTo) {
     this.runNextLifeCycle()
   }
 
-  fastMaybePromiseCallback(value: any, callback: (value: any) => void) {
+  fastMaybePromiseCallback(
+    value: any,
+    callback: (value: any) => void,
+    errorContext?: string,
+  ) {
     if (
       // checking for these values allows us to do 15M transitions in 800ms
       // instead of 10M in 2.5s (when the run effect doesn't return a promise)
@@ -336,12 +496,18 @@ if (thenGoTo) {
           }
         })
         .catch((e: Error) => {
+          // If it's a schema validation error, pass it through
+          if ((e as any).type === "SchemaValidationError") {
+            return this.#fatalError(e)
+          }
+
+          const context =
+            errorContext ||
+            `Cycle "effect" function in state ${this.name}.life[${
+              this.currentCycleIndex - 1
+            }].cycle.effect`
           return this.#fatalError(
-            new Error(
-              `Cycle "run" function in state ${this.name}.life[${
-                this.currentCycleIndex - 1
-              }].cycle.run threw error:\n${e.stack}`
-            )
+            new Error(`${context} threw error:\n${e.stack}`),
           )
         })
     } else {
@@ -355,12 +521,15 @@ if (thenGoTo) {
     }
   }
 
-  goToNextState(context: any = {}) {
+goToNextState(context: any = {}) {
     const machine = this.machine
 
     this.done = true
     this.runningLifeCycle = false
     this.currentCycleIndex = 0
+
+    // Resolve the start promise if this is the initial state completing
+    machine[resolveStartIfPending]()
 
     if (this.nextState) {
       machine.transition(this.nextState, context)
@@ -396,6 +565,7 @@ type OnStartStop =
       callback?: () => Promise<void> | void
       start?: boolean
       stop?: boolean
+      context?: any
     }
   | undefined
 export class Mech {
@@ -417,7 +587,9 @@ export class Mech {
   #onStartPromise: Promise<undefined>
   #resolveOnStart: typeof Promise.resolve
   #rejectOnStart: typeof Promise.reject
-  #awaitingStartPromise: boolean = false
+#awaitingStartPromise: boolean = false
+  #pendingStartResolve: boolean = false
+  #isInitialStateTransition: boolean = false
 
   #onStopPromise: Promise<undefined>
   #resolveOnStop: typeof Promise.resolve
@@ -435,7 +607,7 @@ export class Mech {
     return this
   }
 
-  start() {
+  start(context: any = {}) {
     if (this.status === `running`) {
       return
     }
@@ -450,29 +622,37 @@ export class Mech {
 
     if (!initialized) {
       throw new Error(
-        `Machine not initialized. Something went wrong, this is a bug.`
+        `Machine not initialized. Something went wrong, this is a bug.`,
       )
     }
 
     this.status = `running`
-    this.#resolveOnStart()
 
-    // recreate lifecycle promises so that we can start again later
-    this.createLifeCyclePromises()
+    // Mark that we need to resolve onStart after first successful state initialization
+    this.#pendingStartResolve = true
+    this.#isInitialStateTransition = true
 
     if (this.initialState) {
-      this.transition(this.initialState, {})
+      this.transition(this.initialState, context)
     } else {
+      this.#resolveOnStart()
       this.stop()
     }
   }
 
   async stop() {
-    this.#resolveOnStop()
+    if (this.#awaitingStopPromise) {
+      this.#awaitingStopPromise = false
+      this.#resolveOnStop()
+    }
     // incase we stop before we start, resolve the start promise so code can continue
-    this.#resolveOnStart()
+    if (this.#awaitingStartPromise) {
+      this.#awaitingStartPromise = false
+      this.#resolveOnStart()
+    }
 
     this.status = `stopped`
+    this.initialized = false
   }
 
   private createLifeCyclePromises() {
@@ -499,7 +679,16 @@ export class Mech {
 
   // States use this to throw errors to their machine
   [fatalError](error: Error) {
-    this.#fatalError(error)
+    return this.#fatalError(error)
+  }
+
+  // States use this to resolve the start promise after successful initialization
+  [resolveStartIfPending]() {
+    if (this.#pendingStartResolve) {
+      this.#pendingStartResolve = false
+      this.#awaitingStartPromise = false
+      this.#resolveOnStart()
+    }
   }
 
   async #fatalError(error: Error) {
@@ -516,10 +705,12 @@ export class Mech {
     }
 
     if (this.#awaitingStartPromise) {
+      this.#awaitingStartPromise = false
       this.#rejectOnStart(error)
     }
 
     if (this.#awaitingStopPromise) {
+      this.#awaitingStopPromise = false
       this.#rejectOnStop(error)
     }
 
@@ -533,12 +724,12 @@ export class Mech {
     throw error
   }
 
-  [addState](state: State) {
+[addState](state: State) {
     if (this.initialized) {
       return this.#fatalError(
         new Error(
-          "Machine is already running. You cannot add a state after a machine has started."
-        )
+          "Machine is already running. You cannot add a state after a machine has started.",
+        ),
       )
     }
 
@@ -550,8 +741,8 @@ export class Mech {
       if (typeof state === `undefined`) {
         return this.#fatalError(
           new Error(
-            `State "${stateName}" is undefined.\nMost likely your state isn't defined when your machine is initialized. You can fix this by declaring your machine definition as a function.\n\nExample:\ncreate.machine(() => ({ states: { ... } }))\n\nNot:\ncreate.machine({ states: { ... } })`
-          )
+            `State "${stateName}" is undefined.\nMost likely your state isn't defined when your machine is initialized. You can fix this by declaring your machine definition as a function.\n\nExample:\ncreate.machine(() => ({ states: { ... } }))\n\nNot:\ncreate.machine({ states: { ... } })`,
+          ),
         )
       }
 
@@ -560,16 +751,16 @@ export class Mech {
       if (typeof state[getMachine]() === `undefined`) {
         return this.#fatalError(
           new Error(
-            `State "${stateName}" does not have a machine defined in its state definition. @TODO add docs link`
-          )
+            `State "${stateName}" does not have a machine defined in its state definition. @TODO add docs link`,
+          ),
         )
       }
 
       if (state[getMachine]() !== this) {
         return this.#fatalError(
           new Error(
-            `State "${stateName}" was defined on a different machine. All states must be added to this machine's definition, and this machine must be added to their definition. @TODO add docs link.`
-          )
+            `State "${stateName}" was defined on a different machine. All states must be added to this machine's definition, and this machine must be added to their definition. @TODO add docs link.`,
+          ),
         )
       }
 
@@ -578,7 +769,7 @@ export class Mech {
 
       if (!nameIsCapitalized) {
         return this.#fatalError(
-          new Error(`State names must be capitalized. State: ${stateName}`)
+          new Error(`State names must be capitalized. State: ${stateName}`),
         )
       }
 
@@ -590,8 +781,8 @@ export class Mech {
       if (!this.definition.states[state.name]) {
         return this.#fatalError(
           new Error(
-            `State "${state.name}" does not exist in this machines definition. @TODO add docs link`
-          )
+            `State "${state.name}" does not exist in this machines definition. @TODO add docs link`,
+          ),
         )
       }
     }
@@ -609,12 +800,16 @@ export class Mech {
     if (typeof inputDefinition !== `function` && !isObjectDef) {
       this.#fatalError(
         new Error(
-          `Machine definition must be a function or and object. @TODO add link to docs`
-        )
+          `Machine definition must be a function or and object. @TODO add link to docs`,
+        ),
       )
 
       return
     }
+    
+    // Clear states array before initializing to prevent state leakage
+    this.states = []
+    
     try {
       this.definition =
         typeof inputDefinition === `function`
@@ -663,8 +858,8 @@ export class Mech {
                   wrongMachineName ? ` from Machine "${wrongMachineName}"` : ``
                 })`
               : ``
-          }. State definitions cannot be shared between machines.`
-        )
+          }. State definitions cannot be shared between machines.`,
+        ),
       )
     }
 
@@ -719,8 +914,8 @@ export class Mech {
     if (shouldCheck && exceededMaxTransitionsPerSecond) {
       return this.#fatalError(
         new Error(
-          `Potential infinite loop detected. You may have an infinite state transition loop happening. Total transitions: ${this[transitionCount]}, transitions in the last second: ${this[transitionCheckpointCount]}`
-        )
+          `Potential infinite loop detected. You may have an infinite state transition loop happening. Total transitions: ${this[transitionCount]}, transitions in the last second: ${this[transitionCheckpointCount]}`,
+        ),
       )
     } else if (shouldCheck) {
       this[transitionCheckpointCount] = this[transitionCount]
@@ -729,36 +924,54 @@ export class Mech {
     return true
   }
 
-  public onStart(
-    { callback, start }: OnStartStop = {
+public onStart(
+    { callback, start, context }: OnStartStop = {
       start: false,
-    }
+    },
   ) {
+    // Create a new promise for this specific start event
+    const startPromise = new Promise((resolve, reject) => {
+      this.#resolveOnStart = resolve
+      this.#rejectOnStart = reject
+    })
+    this.#onStartPromise = startPromise
     this.#awaitingStartPromise = true
-
-    const startPromise = this.#onStartPromise.then(callback || (() => {}))
 
     if (start) {
       setImmediate(() => {
-        this.start()
+        this.start(typeof start === "object" ? start : context)
       })
     }
 
-    return startPromise
+    return startPromise.then(callback || (() => {}))
   }
 
   public onStop(
-    { callback, stop, start }: OnStartStop = {
+    { callback, stop, start, context }: OnStartStop = {
       stop: false,
       start: false,
-    }
+    },
   ) {
     this.#awaitingStopPromise = true
-    const stopPromise = this.#onStopPromise.then(callback || (() => {}))
+    
+    // Create a new promise for this specific stop event
+    const stopPromise = new Promise((resolve, reject) => {
+      this.#resolveOnStop = resolve
+      this.#rejectOnStop = reject
+    })
+    this.#onStopPromise = stopPromise
 
     if (start) {
+      // Reset the start promise too since we're restarting
+      this.#awaitingStartPromise = true
+      const startPromise = new Promise((resolve, reject) => {
+        this.#resolveOnStart = resolve
+        this.#rejectOnStart = reject
+      })
+      this.#onStartPromise = startPromise
+      
       setImmediate(() => {
-        this.start()
+        this.start(context)
       })
     }
 
@@ -768,7 +981,7 @@ export class Mech {
       })
     }
 
-    return stopPromise
+    return stopPromise.then(callback || (() => {}))
   }
 }
 
@@ -776,16 +989,96 @@ const machine = (machineDef: MechDefinitionInput) => {
   return new Mech(machineDef)
 }
 
-const state = (def: StateDefinitionInput) => new State(def)
+// Helper type to extract the output type from a schema
+type InferSchema<T> = T extends StandardSchema<infer I, infer O> 
+  ? O 
+  : T extends Schema<infer O> 
+  ? O 
+  : any
 
-export const cycle = Object.assign((definition) => definition, {
-  decide: (condition: (args: FunctionArgs) => boolean, nextState: State | (() => State)) => ({
+// Helper to infer state types from definition
+type InferStateDefinition<T> = T extends StateDefinitionInput<infer I, infer O>
+  ? State<I, O>
+  : T extends (() => infer Def)
+  ? Def extends { input?: infer In; output?: infer Out }
+    ? State<InferSchema<In>, InferSchema<Out>>
+    : State<any, any>
+  : T extends { input?: infer In; output?: infer Out }
+  ? State<InferSchema<In>, InferSchema<Out>>
+  : State<any, any>
+
+function state<T extends StateDefinitionInput<any, any>>(
+  def: T
+): InferStateDefinition<T> {
+  // Runtime: extract the actual types from the definition
+  const getDef = () => typeof def === 'function' ? def() : def
+  const definition = getDef()
+  
+  // Create the state with proper types
+  return new State(def) as InferStateDefinition<T>
+}
+
+export const cycle = Object.assign(<T>(definition: T) => definition, {
+  decide: (
+    condition: (args: FunctionArgs) => boolean,
+    nextState: State | (() => State),
+  ) => ({
     if: condition,
-    thenGoTo: typeof nextState === 'function' ? nextState : () => nextState,
+    thenGoTo: typeof nextState === "function" ? nextState : () => nextState,
   }),
-  //   onRequest: definition => definition,
-  //   respond: definition => definition,
 })
+
+type ThenGoToDefinition<TOutput = any, TNextInput = any> = {
+  state: State<TNextInput>
+  prepare?: (output: TOutput) => TNextInput | Promise<TNextInput>
+}
+
+export const effect = Object.assign(
+  <TContext = any, TOutput = any>(
+    fn: (args: FunctionArgs<TContext>) => TOutput | Promise<TOutput>,
+  ): EffectHandlerDefinition<TContext, TOutput> => ({
+    type: `EffectHandler` as const,
+    effectHandler: (args: FunctionArgs<TContext>) => fn(args),
+  }),
+  {
+    // lazy: (fn) => fn(),
+    wait: <TContext = any>(
+      time?: number,
+      callback?: (...stuff: any) => void | Promise<void>,
+    ): EffectHandlerDefinition<TContext, void> => ({
+      type: `EffectHandler` as const,
+      effectHandler: () =>
+        new Promise((res) => {
+          if (typeof time === `number`) {
+            setTimeout(async () => {
+              if (typeof callback === `function`) {
+                await callback()
+              }
+              res(null)
+            }, time * 1000)
+          } else {
+            res(null)
+          }
+        }),
+    }),
+    // respond: (signal, fn) => fn(),
+    // request: (state, fn) => fn(),
+    waitForState: (
+      stateFn: WaitForStateDefinition["handler"],
+    ): SignalDefinition => ({
+      type: `WaitForState`,
+      handler: stateFn,
+    }),
+    // waitForSequence: state => {},
+    // waitForOrderedSequence: state => {},
+    onTransition: (
+      handler?: OnTransitionDefinition["handler"],
+    ): SignalDefinition => ({
+      type: `OnTransitionDefinition`,
+      handler: handler || ((args) => ({ value: args })),
+    }),
+  },
+)
 
 type WaitForStateDefinition = {
   handler: () => State
@@ -804,50 +1097,11 @@ type SignalDefinition = {
   handler: (args?: TransitionHandlerArgs) => any | State
 }
 
-export const effect = Object.assign(
-  (fn: (args: FunctionArgs) => any | Promise<any>) => ({
-    type: `EffectHandler`,
-    effectHandler: (args: FunctionArgs) => fn(args),
-  }),
-  {
-    // lazy: (fn) => fn(),
-    wait: (
-      time?: number,
-      callback?: (...stuff: any) => void | Promise<void>
-    ) => ({
-      type: `EffectHandler`,
-      effectHandler: () =>
-        new Promise((res) => {
-          if (typeof time === `number`) {
-            setTimeout(async () => {
-              await callback?.()
-              res(null)
-            }, time * 1000)
-          }
-        }),
-    }),
-    // respond: (signal, fn) => fn(),
-    // request: (state, fn) => fn(),
-    waitForState: (
-      stateFn: WaitForStateDefinition["handler"]
-    ): SignalDefinition => ({
-      type: `WaitForState`,
-      handler: stateFn,
-    }),
-    // waitForSequence: state => {},
-    // waitForOrderedSequence: state => {},
-    onTransition: (
-      handler?: OnTransitionDefinition["handler"]
-    ): SignalDefinition => ({
-      type: `OnTransitionDefinition`,
-      handler: handler || ((args) => ({ value: args })),
-    }),
-  }
-)
-
 export const create = {
   machine,
   state,
   effect,
   cycle,
 }
+
+export { machine, state }

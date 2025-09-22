@@ -88,12 +88,12 @@ const RedLight = create.state({
   //   emoji: `🛑`,
   // },
   life: [
-    cycle({
-      run: effect(() => console.log(`🛑`)),
+cycle({
+      effect: effect(() => console.log(`🛑`)),
     }),
-    cycle({
+cycle({
       name: `Go to green light`,
-      run: effect.wait(2),
+      effect: effect.wait(2),
       thenGoTo: GreenLight,
     }),
   ],

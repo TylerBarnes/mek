@@ -80,7 +80,7 @@ describe(`create.machine`, () => {
       life: [
         cycle({
           name: `Test`,
-          run: effect(async () => {
+          effect: effect(async () => {
             await new Promise((res) => setTimeout(res, 100))
             setImmediate(() => {
               flag = true
@@ -139,40 +139,37 @@ describe(`create.machine`, () => {
     ])
   })
 
-  test(`the first state in the states: {} object in the machine definition is the initial state`, async () => {
+test(`the first state in the states: {} object in the machine definition is the initial state`, async () => {
+    const enteredStates: string[] = []
+
     const machine = create.machine(() => ({
+      initial: () => machine.states.find(s => s.name === 'StateOne'),
       states: {
-        StateOne,
-        StateTwo,
+        StateOne: create.state(() => ({
+          machine,
+          life: [
+            cycle({
+              name: `go to state 2`,
+              effect: effect(() => enteredStates.push(`StateOne`)),
+              thenGoTo: () => machine.states.find(s => s.name === 'StateTwo'),
+            }),
+          ],
+        })),
+        StateTwo: create.state(() => ({
+          machine,
+          life: [
+            cycle({
+              effect: effect(() => enteredStates.push(`StateTwo`)),
+              name: `done`,
+            }),
+          ],
+        })),
       },
 
       // signals: {
       //   onTransition,
       // },
     }))
-
-    const enteredStates: string[] = []
-
-    const StateOne = create.state(() => ({
-      machine,
-      life: [
-        cycle({
-          name: `go to state 2`,
-          run: effect(() => enteredStates.push(`StateOne`)),
-          thenGoTo: StateTwo,
-        }),
-      ],
-    }))
-
-    const StateTwo = create.state({
-      machine,
-      life: [
-        cycle({
-          run: effect(() => enteredStates.push(`StateTwo`)),
-          name: `done`,
-        }),
-      ],
-    })
 
     machine.start()
 
@@ -192,42 +189,37 @@ describe(`create.machine`, () => {
     // expect(onTransition.did.invocationCount()).toBe(1)
   })
 
-  it(`when a machine has the initial property defined, that state is the initial state instead of the first state in the states object`, async () => {
-    const machine = create.machine(() => ({
-      initialState: StateTwo,
+it(`when a machine has the initial property defined, that state is the initial state instead of the first state in the states object`, async () => {
+    const enteredStates: string[] = []
 
+    const machine = create.machine(() => ({
+      initial: () => machine.states.find(s => s.name === 'StateTwo'),
       states: {
-        StateOne,
-        StateTwo,
+        StateOne: create.state(() => ({
+          machine,
+          life: [
+            cycle({
+              name: `go to state 2`,
+              effect: effect(() => enteredStates.push(`StateOne`)),
+              thenGoTo: () => machine.states.find(s => s.name === 'StateTwo'),
+            }),
+          ],
+        })),
+        StateTwo: create.state(() => ({
+          machine,
+          life: [
+            cycle({
+              effect: effect(() => enteredStates.push(`StateTwo`)),
+              name: `done`,
+            }),
+          ],
+        })),
       },
 
       // signals: {
       //   onTransition,
       // },
     }))
-
-    const enteredStates: string[] = []
-
-    const StateOne = create.state(() => ({
-      machine,
-      life: [
-        cycle({
-          name: `go to state 2`,
-          run: effect(() => enteredStates.push(`StateOne`)),
-          thenGoTo: StateTwo,
-        }),
-      ],
-    }))
-
-    const StateTwo = create.state({
-      machine,
-      life: [
-        cycle({
-          run: effect(() => enteredStates.push(`StateTwo`)),
-          name: `done`,
-        }),
-      ],
-    })
 
     // const onTransition = create.signal(effect.onTransition())
 
@@ -245,49 +237,46 @@ describe(`create.machine`, () => {
     // expect(onTransition.did.invocationCount()).toBe(1)
   })
 
-  test(`15 million transitions take less than a second`, async () => {
+test(`15 million transitions take less than a second`, async () => {
     const iterationMax = 15_000_000
     const startTime = Date.now()
     let counter = 0
 
     const machine = create.machine(() => ({
+      initial: () => machine.states.find(s => s.name === 'StateOne'),
       states: {
-        StateOne,
-        StateTwo,
+        StateOne: create.state(() => ({
+          machine,
+          life: [
+            cycle({
+              name: `only cycle`,
+              if: () => counter <= iterationMax,
+              effect: () => {
+                counter++
+              },
+              thenGoTo: () => machine.states.find(s => s.name === 'StateTwo'),
+            }),
+          ],
+        })),
+        StateTwo: create.state(() => ({
+          machine,
+          life: [
+            cycle({
+              name: `only cycle`,
+              if: () => counter <= iterationMax,
+              effect: () => {
+                counter++
+              },
+              thenGoTo: () => machine.states.find(s => s.name === 'StateOne'),
+            }),
+          ],
+        })),
       },
 
       options: {
         maxTransitionsPerSecond: iterationMax,
       },
     }))
-
-    const StateOne = create.state(() => ({
-      machine,
-      life: [
-        cycle({
-          name: `only cycle`,
-          if: () => counter <= iterationMax,
-          run: () => {
-            counter++
-          },
-          thenGoTo: StateTwo,
-        }),
-      ],
-    }))
-
-    const StateTwo = create.state({
-      machine,
-      life: [
-        cycle({
-          name: `only cycle`,
-          if: () => counter <= iterationMax,
-          run: () => {
-            counter++
-          },
-          thenGoTo: StateOne,
-        }),
-      ],
-    })
 
     machine.start()
     await machine.onStop()

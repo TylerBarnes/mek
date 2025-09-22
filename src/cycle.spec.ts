@@ -1,31 +1,32 @@
 import { create, cycle, effect } from "./mek"
 
 describe(`cycle`, () => {
-  it(`returns a valid state cycle definition`, async () => {
+it(`returns a valid state cycle definition`, async () => {
     const machine = create.machine(() => ({
+      initial: () => machine.states.find(s => s.name === 'TestState'),
       states: {
-        TestState,
+        TestState: create.state(() => ({
+          machine,
+          life: [],
+        })),
       },
     }))
 
-    const TestState = create.state({
-      machine,
-      life: [],
-    })
-
-    machine.start()
+    await machine.start()
     await machine.onStop()
+
+    const TestState = machine.states.find(s => s.name === 'TestState')
 
     expect(
       cycle({
         name: `test`,
-        run: effect(() => {}),
+        effect: effect(() => {}),
         thenGoTo: () => TestState,
         condition: () => true,
       })
     ).toEqual({
       name: `test`,
-      run: {
+effect: {
         type: `EffectHandler`,
         effectHandler: expect.any(Function),
       },
@@ -34,43 +35,42 @@ describe(`cycle`, () => {
     })
   })
 
-  test(`effect methods besides effect()/effect.wait() throw errors when passed to cycle.run() or when called outside of cycle.run()`, async () => {
+test(`effect methods besides effect()/effect.wait() throw errors when passed to cycle.effect() or when called outside of cycle.effect()`, async () => {
     const machine = create.machine(() => ({
+      initial: () => machine.states.find(s => s.name === 'StateOne'),
       states: {
-        StateOne,
+        StateOne: create.state(() => ({
+          machine,
+          life: [
+            cycle({
+effect: effect.onTransition(({}) => ({ value: null })),
+            }),
+          ],
+        })),
       },
     }))
-
-    const StateOne = create.state({
-      machine,
-      life: [
-        cycle({
-          run: effect.onTransition(({}) => ({ value: null })),
-        }),
-      ],
-    })
 
     await expect(
       machine.onStop({
         start: true,
       })
     ).rejects.toThrow(
-      `Life cycle run must be a function or an effect function. State:`
+      `Life cycle effect must be a function or an effect function. State:`
     )
   })
 
 it(`cycle.decide is a function that decides whether or not thenGoTo is called`, () => {
     const machine = create.machine(() => ({
+      initial: () => machine.states.find(s => s.name === 'TestState'),
       states: {
-        TestState,
+        TestState: create.state(() => ({
+          machine,
+          life: [],
+        })),
       },
     }))
 
-    const TestState = create.state({
-      machine,
-      life: [],
-    })
-
+    const TestState = machine.states.find(s => s.name === 'TestState')
     const decision = cycle.decide(() => true, TestState)
     
     expect(decision).toEqual({
