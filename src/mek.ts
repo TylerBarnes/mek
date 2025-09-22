@@ -1085,8 +1085,15 @@ export const effect = Object.assign(
       type: `OnTransitionDefinition`,
       handler: handler || ((args) => ({ value: args })),
     }),
-  },
+},
 )
+
+// Helper function to create lifecycle objects with better type inference
+export function createLifeCycle<TContext = any, TOutput = any, TNextInput = any>(
+  lifecycle: LifeCycle<TContext, TOutput, TNextInput>
+): LifeCycle<TContext, TOutput, TNextInput> {
+  return lifecycle
+}
 
 type WaitForStateDefinition = {
   handler: () => State
@@ -1110,6 +1117,7 @@ export const create = {
   state,
   effect,
   cycle,
+  lifeCycle: createLifeCycle,
 }
 
 export { machine, state }

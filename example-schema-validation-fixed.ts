@@ -1,5 +1,6 @@
 import { create } from "./src/mek"
 import * as v from "valibot"
+import { InferOutput } from "valibot"
 
 // Define schemas using Valibot
 const LoginSchema = v.object({
@@ -11,6 +12,11 @@ const UserSchema = v.object({
   id: v.number(),
   name: v.string(),
   email: v.string(),
+})
+
+const DashboardSchema = v.object({
+  userId: v.number(),
+  displayName: v.string(),
 })
 
 // Create machine (using function to avoid circular reference)
@@ -31,7 +37,11 @@ const LoginState = create.state(() => ({
   input: LoginSchema,
   output: UserSchema,
   life: [
-    {
+    create.lifeCycle<
+      InferOutput<typeof LoginSchema>,
+      InferOutput<typeof UserSchema>,
+      InferOutput<typeof DashboardSchema>
+    >({
       effect: async ({ context }) => {
         console.log("🔐 Login effect running with:", context)
         // Simulate login API call
@@ -56,18 +66,18 @@ const LoginState = create.state(() => ({
           }
         },
       },
-    },
+    }),
   ],
 }))
 
 const DashboardState = create.state(() => ({
   machine: AuthMachine,
-  input: v.object({
-    userId: v.number(),
-    displayName: v.string(),
-  }),
+  input: DashboardSchema,
   life: [
-    {
+    create.lifeCycle<
+      InferOutput<typeof DashboardSchema>,
+      { success: boolean }
+    >({
       effect: ({ context }) => {
         console.log(
           `🎉 Welcome ${context.displayName} (User ID: ${context.userId})!`,
@@ -75,7 +85,7 @@ const DashboardState = create.state(() => ({
         // Machine will stop after this
         return { success: true }
       },
-    },
+    }),
   ],
 }))
 
